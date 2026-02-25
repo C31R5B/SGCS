@@ -12,10 +12,14 @@ from io import BytesIO
 
 from PIL import Image as PILImage
 
-
-with open("C:/Users/thecr/Nextcloud/AAA_SCGS/Key.txt") as f:
-    key_data = f.readlines()
-
+try:
+    with open("C:/Users/thecr/Nextcloud/AAA_SCGS/Key.txt") as f:
+        key_data = f.readlines()
+except Exception as e:
+    with open("C:/Users/user/Nextcloud/AAA_SCGS/Key.txt") as f:
+        key_data = f.readlines()
+        
+        
 key_data=key_data[0].split()
 
 API_KEY_Steam=key_data[1]
@@ -151,9 +155,23 @@ def List_Client_Games():
         
         #Games_Dict=dict(zip(GameID_List, GameName_List))
             
-        return {"GIDL":GameID_List, "GNL":GameName_List}
+        return {"GCIDL":GameID_List, "GCNL":GameName_List}
     else:
-        return {"GIDL":[],"GNL":[]}
+        return {"GCIDL":[],"GCNL":[]}
+
+def List_Installed_Client_Games():
+    with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
+        library = f.readlines()
+    library =library[10:]
+    GameIDR=re.compile(r'[0-9]+')
+    GameID_List=GameIDR.findall(library)
+    GameID_List=[]
+    GameName_List=[]
+    if True:
+        return {"GICIDL":GameID_List, "GICNL":GameName_List}
+    else:
+        return {"GICIDL":[],"GICNL":[]}
+
 
 def Find_GameID(GameName:str,GamesLists):
 #    if IsConnected == True:
@@ -177,15 +195,6 @@ def Find_GameName(GameID:int,GamesLists):
         return GameNames[GameIDs.index(str(GameID))]
 
 
-def Fill_GameID():
-    GameID=Find_GameID(NameField.get(),GamesLists)
-    KeyField.delete(0,END)
-    KeyField.insert(0,GameID)
-
-def Fill_GameName():
-    GameID=Find_GameName(KeyField.get(),GamesLists)
-    NameField.delete(0,END)
-    NameField.insert(0,GameID)
 
 
 #https://store.steampowered.com/app/1210320/Potion_Craft_Alchemist_Simulator/
@@ -196,6 +205,7 @@ def Fill_GameName():
 #https://steamapi.xpaw.me/#ISteamApps
 IsConnected=Connect_Check()
 GamesLists=List_Client_Games()
+IGamesList=List_Installed_Client_Games()
 
 if Steam_running() == False:
     os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
@@ -239,17 +249,9 @@ FrameThing=ttk.Frame(root,padding=30)
 FrameThing.pack()
 ttk.Button(FrameThing, text="Quit", command=root.destroy).pack()
 ttk.Button(FrameThing, text="Launch Game",command=Launch_Game).pack()
-ttk.Label(FrameThing,text="GameID").pack()
-ttk.Button(FrameThing, text="Get GameName",command=Fill_GameName).pack()
-KeyField=ttk.Entry(FrameThing,text="GAMEID")
+ttk.Label(FrameThing,text="AppID").pack()
+KeyField=ttk.Entry(FrameThing)
 KeyField.pack()
-IDThing=ttk.Frame(root,padding=30)
-IDThing.pack()
-ttk.Label(IDThing,text="GameID from Name").pack()
-ttk.Button(IDThing, text="Get GameID",command=Fill_GameID).pack()
-NameField=ttk.Entry(IDThing,text="GAMENAME")
-NameField.pack()
-
 
 root.mainloop()
 
