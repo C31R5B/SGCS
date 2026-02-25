@@ -318,3 +318,7 @@ ttk.Button(root,text="Send Game Image",command=SendImage).pack()
 ttk.Label(root,text="OR").pack()
 ttk.Button(root,text="Select and Send Image from Disk",command=SelectImage).pack()
 root.mainloop()
+
+
+
+#New API:https://partner.steamgames.com/doc/webapi/IStoreService#GetAppList
