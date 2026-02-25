@@ -100,68 +100,78 @@ def List_Games():
         return {"GIDL":[],"GNL":[]}
 
 def List_Owned_Client_Games():
-    
-    last_appid=0 
-    max_results=50000
-    
-    url="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
-    params = {
-        "key": API_KEY_Steam,
-        "steamid":USER_ID_Steam,
-        "include_played_free_games":True,
-        "include_appinfo":True,
-        "include_extended_appinfo":True
-        
-    }
-    #Returns like this IF "include_extended_appinfo":False :
-    #{"appid":210970,"name":"The Witness","playtime_forever":1896,"img_icon_url":"5406b4e33862420abfb60a23e581cad2a1ec85f7","has_community_visible_stats":true,"playtime_windows_forever":363,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1639273581,"playtime_disconnected":0}
-    #{"appid":8190,"name":"Just Cause 2","playtime_forever":49,"img_icon_url":"73582e392a2b9413fe93b011665a5b9cf26ff175","has_community_visible_stats":true,"playtime_windows_forever":0,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1508424672,"playtime_disconnected":0}
-    #use IMG url as follows:
-    #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_ICON_URL.jpg, replacing "APPID" and "IMG_ICON_URL" as necessary.
-    #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_LOGO_URL.jpg, replacing "APPID" and "IMG_LOGO_URL" as necessary.
-    
-    #Source: https://wiki.teamfortress.com/wiki/WebAPI/GetOwnedGames
-    
-    #sonst mit =True:
-    #{"appid":220200,"name":"Kerbal Space Program","playtime_forever":28444,"img_icon_url":"6dc8c1377c6b0ffedaeaec59c253f8c33fb3e62b","playtime_windows_forever":17874,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1736608738,"capsule_filename":"library_600x900.jpg","has_workshop":true,"has_market":false,"has_dlc":true,"playtime_disconnected":0}
-        
-    
     try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        #print(response.text)
+        with open("GameIDs.txt") as f:
+                GameNameR = f.read()
+        with open("GameNames.txt") as f:
+                GameIDR = f.read()      
         
-    except requests.exceptions.RequestException as e:
-        print(f"   ❌ Fehler: {e}")
-        print(response.text)
-    
-  
-    #print(response.headers)
-    #print(response.text)
-    if response.status_code==200:
-        Games_string=response.text.removeprefix('{"applist":{"apps":[').removesuffix("]}}")
-        #Games_List=Games_List.removeprefix('{"applist":{"apps":[')
-        #Games_List=Games_List.removesuffix("]}}")
-        #,{"appid":400,"name":"Portal"},{"appid":410,"name":"Portal: First Slice"},
-        #Games_List=re.search('"appid":',Games_List)
-        test=re.findall(r'\b4[0-9]*,', Games_string)
-        EntryR = re.compile(r"\{[^}]*\}", re.IGNORECASE)
-        Games_List=EntryR.findall(Games_string)
-        GameIDR=re.compile(r'(?<="appid":)[0-9]+')
+        GameIDR=re.compile(r'(?<=")[0-9]+')
         GameID_List=GameIDR.findall(Games_string)
-        GameNameR=re.compile(r'(?<="name":")(?:[^"]|"")*')
-        GameName_List=GameNameR.findall(Games_string)
-        
-        #Games_Dict=dict(zip(GameID_List, GameName_List))
-
-
-        with open('GameIDs.txt', 'w') as filehandle:
-            json.dump(GameID_List, filehandle)  
-        with open('GameNames.txt', 'w') as filehandle:
-            json.dump(GameName_List, filehandle)     
+        GameNameR=re.compile(r'(?<=")(?:[^"]|"")*')
+        GameName_List=GameNameR.findall(Games_string)  
         return {"GCIDL":GameID_List, "GCNL":GameName_List}
-    else:
-        return {"GCIDL":[],"GCNL":[]}
+    except Exception as e:
+            
+        
+        url="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+        params = {
+            "key": API_KEY_Steam,
+            "steamid":USER_ID_Steam,
+            "include_played_free_games":True,
+            "include_appinfo":True,
+            "include_extended_appinfo":True
+            
+        }
+        #Returns like this IF "include_extended_appinfo":False :
+        #{"appid":210970,"name":"The Witness","playtime_forever":1896,"img_icon_url":"5406b4e33862420abfb60a23e581cad2a1ec85f7","has_community_visible_stats":true,"playtime_windows_forever":363,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1639273581,"playtime_disconnected":0}
+        #{"appid":8190,"name":"Just Cause 2","playtime_forever":49,"img_icon_url":"73582e392a2b9413fe93b011665a5b9cf26ff175","has_community_visible_stats":true,"playtime_windows_forever":0,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1508424672,"playtime_disconnected":0}
+        #use IMG url as follows:
+        #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_ICON_URL.jpg, replacing "APPID" and "IMG_ICON_URL" as necessary.
+        #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_LOGO_URL.jpg, replacing "APPID" and "IMG_LOGO_URL" as necessary.
+        
+        #Source: https://wiki.teamfortress.com/wiki/WebAPI/GetOwnedGames
+        
+        #sonst mit =True:
+        #{"appid":220200,"name":"Kerbal Space Program","playtime_forever":28444,"img_icon_url":"6dc8c1377c6b0ffedaeaec59c253f8c33fb3e62b","playtime_windows_forever":17874,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1736608738,"capsule_filename":"library_600x900.jpg","has_workshop":true,"has_market":false,"has_dlc":true,"playtime_disconnected":0}
+            
+        
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            #print(response.text)
+            
+        except requests.exceptions.RequestException as e:
+            print(f"   ❌ Fehler: {e}")
+            print(response.text)
+        
+    
+        #print(response.headers)
+        #print(response.text)
+        if response.status_code==200:
+            Games_string=response.text.removeprefix('{"applist":{"apps":[').removesuffix("]}}")
+            #Games_List=Games_List.removeprefix('{"applist":{"apps":[')
+            #Games_List=Games_List.removesuffix("]}}")
+            #,{"appid":400,"name":"Portal"},{"appid":410,"name":"Portal: First Slice"},
+            #Games_List=re.search('"appid":',Games_List)
+            test=re.findall(r'\b4[0-9]*,', Games_string)
+            EntryR = re.compile(r"\{[^}]*\}", re.IGNORECASE)
+            Games_List=EntryR.findall(Games_string)
+            GameIDR=re.compile(r'(?<="appid":)[0-9]+')
+            GameID_List=GameIDR.findall(Games_string)
+            GameNameR=re.compile(r'(?<="name":")(?:[^"]|"")*')
+            GameName_List=GameNameR.findall(Games_string)
+            
+            #Games_Dict=dict(zip(GameID_List, GameName_List))
+
+
+            with open('GameIDs.txt', 'w') as filehandle:
+                json.dump(GameID_List, filehandle)  
+            with open('GameNames.txt', 'w') as filehandle:
+                json.dump(GameName_List, filehandle)     
+            return {"GCIDL":GameID_List, "GCNL":GameName_List}
+        else:
+            return {"GCIDL":[],"GCNL":[]}
 
 def List_Installed_Client_Games():
     with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
