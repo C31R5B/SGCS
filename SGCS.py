@@ -99,7 +99,7 @@ def List_Games():
     else:
         return {"GIDL":[],"GNL":[]}
 
-def List_Client_Games():
+def List_Owned_Client_Games():
     
     last_appid=0 
     max_results=50000
@@ -129,8 +129,7 @@ def List_Client_Games():
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
-        data = response.json()
-        print(response.text)
+        #print(response.text)
         
     except requests.exceptions.RequestException as e:
         print(f"   ❌ Fehler: {e}")
@@ -154,15 +153,21 @@ def List_Client_Games():
         GameName_List=GameNameR.findall(Games_string)
         
         #Games_Dict=dict(zip(GameID_List, GameName_List))
-            
+
+
+        with open('GameIDs.txt', 'w') as filehandle:
+            json.dump(GameID_List, filehandle)  
+        with open('GameNames.txt', 'w') as filehandle:
+            json.dump(GameName_List, filehandle)     
         return {"GCIDL":GameID_List, "GCNL":GameName_List}
     else:
         return {"GCIDL":[],"GCNL":[]}
 
 def List_Installed_Client_Games():
     with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
-        library = f.readlines()
-    library =library[10:]
+        library = f.read()
+    libraryFolderHeader='"libraryfolders"\n{\n\t"0"\n\t{\n\t\t"path"\t\t"C:\\\\Program Files (x86)\\\\Steam"\n\t\t"label"\t\t""\n\t\t"contentid"\t\t"1611306386609458316"\n\t\t"totalsize"\t\t"0"\n\t\t"update_clean_bytes_tally"\t\t"2148087031"\n\t\t"time_last_update_verified"\t\t"1771937665"\n\t\t'
+    library =library.removeprefix(libraryFolderHeader)
     GameIDR=re.compile(r'[0-9]+')
     GameID_List=GameIDR.findall(library)
     GameID_List=[]
@@ -172,7 +177,7 @@ def List_Installed_Client_Games():
     else:
         return {"GICIDL":[],"GICNL":[]}
 
-
+#1988540=ZSC
 def Find_GameID(GameName:str,GamesLists):
 #    if IsConnected == True:
 #        headers = {
@@ -204,7 +209,7 @@ def Find_GameName(GameID:int,GamesLists):
 #https://partner.steamgames.com/doc/webapi/ISteamApps#GetAppBuilds
 #https://steamapi.xpaw.me/#ISteamApps
 IsConnected=Connect_Check()
-GamesLists=List_Client_Games()
+GamesLists=List_Owned_Client_Games()
 IGamesList=List_Installed_Client_Games()
 
 if Steam_running() == False:
