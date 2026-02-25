@@ -43,7 +43,8 @@ def Run_Game(GameID:int):
     os.startfile(f"steam://rungameid/{GameID}")
 
 def Launch_Game():
-    GameID=int(KeyField.get())
+    global AppID_v
+    GameID=int(AppID_v)
     Run_Game(GameID)
 
 def List_Games():
@@ -95,9 +96,9 @@ def List_Games():
         
         #Games_Dict=dict(zip(GameID_List, GameName_List))
             
-        return {"GIDL":GameID_List, "GNL":GameName_List}
+        return {"ID_L":GameID_List, "Name_L":GameName_List}
     else:
-        return {"GIDL":[],"GNL":[]}
+        return {"ID_L":[],"Name_L":[]}
 
 def List_Owned_Client_Games():
     try:
@@ -110,7 +111,7 @@ def List_Owned_Client_Games():
         GameID_List=GameIDR.findall(Games_string)
         GameNameR=re.compile(r'(?<=")(?:[^"]|"")*')
         GameName_List=GameNameR.findall(Games_string)  
-        return {"GCIDL":GameID_List, "GCNL":GameName_List}
+        return {"ID_L":GameID_List, "Name_L":GameName_List}
     except Exception as e:
             
         
@@ -169,9 +170,9 @@ def List_Owned_Client_Games():
                 json.dump(GameID_List, filehandle)  
             with open('GameNames.txt', 'w') as filehandle:
                 json.dump(GameName_List, filehandle)     
-            return {"GCIDL":GameID_List, "GCNL":GameName_List}
+            return {"ID_L":GameID_List, "Name_L":GameName_List}
         else:
-            return {"GCIDL":[],"GCNL":[]}
+            return {"ID_L":[],"Name_L":[]}
 
 def List_Installed_Client_Games():
     with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
@@ -180,12 +181,9 @@ def List_Installed_Client_Games():
     library =library.removeprefix(libraryFolderHeader)
     GameIDR=re.compile(r'[0-9]+')
     GameID_List=GameIDR.findall(library)
-    GameID_List=[]
     GameName_List=[]
-    if True:
-        return {"GICIDL":GameID_List, "GICNL":GameName_List}
-    else:
-        return {"GICIDL":[],"GICNL":[]}
+    return {"ID_L":GameID_List, "Name_L":GameName_List}
+
 
 #1988540=ZSC
 def Find_GameID(GameName:str,GamesLists):
@@ -197,19 +195,48 @@ def Find_GameID(GameName:str,GamesLists):
 #        print(Query.headers)
 #        print(Query.text)'
 #    else:
-        GameIDs=list(GamesLists["GIDL"])
-        GameNames=list(GamesLists["GNL"])
+        GameIDs=list(GamesLists["ID_L"])
+        GameNames=list(GamesLists["Name_L"])
         return GameIDs[GameNames.index(GameName)]
 
 def Find_GameName(GameID:int,GamesLists):
 #    if IsConnected == True:
 #        Query=requests.get(f"https://www.steamgriddb.com/api/v2/games/id/{GameID}")
 #    else:
-        GameIDs=list(GamesLists["GIDL"])
-        GameNames=list(GamesLists["GNL"])
+        GameIDs=list(GamesLists["ID_L"])
+        GameNames=list(GamesLists["Name_L"])
         return GameNames[GameIDs.index(str(GameID))]
 
+def GUI_FindGameID():
+        global GamesLists
+        global AppID_v
+        global GName_v
+        global Playtime_v
+        GameIDs=list(GamesLists["ID_L"])
+        GameNames=list(GamesLists["Name_L"])
+        GameID=GameIDs[GameNames.index(NameField.get())]
+        AppID.configure(text=GameID)
+        AppID_v=GameID
+        GName.configure(text=NameField.get())
+        GName_v=NameField.get()
 
+
+
+def FetchImage():
+
+    headers = {
+            "Authorization": f"Bearer {API_KEY_SteamGrid}"
+        }
+    params = {
+'styles':'official',
+}
+    IconQuery=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID.get()}",headers=headers,params=params)
+    IconURL=re.findall((r'(?<="url":")[^"]*'),IconQuery.text)
+    print(IconQuery.status_code)
+    url = IconURL[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")
+    response = requests.get(url)
+    img = PILImage.open(BytesIO(response.content)).convert('L')
+    return img 
 
 
 #https://store.steampowered.com/app/1210320/Potion_Craft_Alchemist_Simulator/
@@ -226,22 +253,6 @@ if Steam_running() == False:
     os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
 
 #os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
-
-def FetchImage():
-
-    headers = {
-            "Authorization": f"Bearer {API_KEY_SteamGrid}"
-        }
-    params = {
-'styles':'official',
-}
-    IconQuery=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{KeyField.get()}",headers=headers,params=params)
-    IconURL=re.findall((r'(?<="url":")[^"]*'),IconQuery.text)
-    print(IconQuery.status_code)
-    url = IconURL[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")
-    response = requests.get(url)
-    img = PILImage.open(BytesIO(response.content)).convert('L')
-    return img 
 
 
 
@@ -260,13 +271,39 @@ from tkinter.filedialog import askopenfilename
 root = Tk()
 root.title("SGCS 0.1")
 root.attributes("-fullscreen", False)
-FrameThing=ttk.Frame(root,padding=30)
-FrameThing.pack()
+FrameThing=ttk.Frame(root,padding=30,relief="groove")
+FrameThing.pack(side="left")
 ttk.Button(FrameThing, text="Quit", command=root.destroy).pack()
-ttk.Button(FrameThing, text="Launch Game",command=Launch_Game).pack()
-ttk.Label(FrameThing,text="AppID").pack()
-KeyField=ttk.Entry(FrameThing)
-KeyField.pack()
+ttk.Label(FrameThing,text="\n").pack()
+ttk.Label(FrameThing,text="GameName").pack()
+NameField=ttk.Entry(FrameThing)
+NameField.pack()
+ttk.Label(FrameThing,text="\n").pack()
+ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
+
+DiagnoseField=ttk.Frame(root,padding=30,relief="groove")
+DiagnoseField.pack(side="right")
+ttk.Label(DiagnoseField,text="AppID:").pack()
+AppID=ttk.Label(DiagnoseField,text="xxxxxx")
+AppID.pack()
+AppID_v=0
+
+
+ttk.Label(DiagnoseField,text="\nGName:").pack()
+GName=ttk.Label(DiagnoseField,text="xxxxxx")
+GName.pack()
+GName_v=""
+
+
+
+ttk.Label(DiagnoseField,text="\nPlaytime:").pack()
+Playtime=ttk.Label(DiagnoseField,text="xxxxxx")
+Playtime.pack()
+Playtime_v=0
+
+ttk.Label(DiagnoseField,text="\n").pack()
+ttk.Button(DiagnoseField, text="Launch Game",command=Launch_Game).pack()
+
 
 root.mainloop()
 
