@@ -5,17 +5,23 @@ import subprocess
 import re
 
 import json
+import urllib
 from io import StringIO  
 from io import BytesIO
-import PIL
-from PIL import Image
 
 
 from PIL import Image as PILImage
-import PIL.ImageOps 
-import time
-import serial
 
+
+with open("C:/Users/thecr/Nextcloud/AAA_SCGS/Key.txt") as f:
+    key_data = f.readlines()
+
+key_data=key_data[0].split()
+
+API_KEY_Steam=key_data[1]
+API_KEY_SteamGrid=key_data[3]
+USER_ID_Steam=key_data[5]
+key_data=""
 
 
 def Connect_Check():
@@ -37,9 +43,100 @@ def Launch_Game():
     Run_Game(GameID)
 
 def List_Games():
-    Games_string=requests.get("https://api.steampowered.com/ISteamApps/GetAppList/v2/")
-    if Games_string.status_code==200:
-        Games_string=Games_string.text.removeprefix('{"applist":{"apps":[').removesuffix("]}}")
+    
+    last_appid=0 
+    max_results=50000
+    url="https://api.steampowered.com/IStoreService/GetAppList/v1/"
+    params = {
+        "key": API_KEY_Steam,
+        # "include_games": True,        # Nur Spiele (default)
+        # "include_dlc": False,         # Keine DLCs
+        # "include_software": False,    # Keine Software
+        # "include_videos": False,       # Keine Videos
+        # "include_hardware": False,     # Keine Hardware
+         "max_results": max_results,    # Maximal 50.000 pro Seite
+        # "last_appid": last_appid       # Startpunkt für die nächste Seite
+    }
+
+    try:
+        print(f"🔄 Rufe Seite ab mit last_appid = {last_appid}...")
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Die Struktur der Antwort: Die Apps sind in 'response' -> 'apps'
+        apps = data.get('response', {}).get('apps', [])
+        print(f"   ✅ {len(apps)} Apps auf dieser Seite erhalten.")
+
+        
+    except requests.exceptions.RequestException as e:
+        print(f"   ❌ Fehler: {e}")
+    
+  
+    #print(response.headers)
+    #print(response.text)
+    if response.status_code==200:
+        Games_string=response.text.removeprefix('{"applist":{"apps":[').removesuffix("]}}")
+        #Games_List=Games_List.removeprefix('{"applist":{"apps":[')
+        #Games_List=Games_List.removesuffix("]}}")
+        #,{"appid":400,"name":"Portal"},{"appid":410,"name":"Portal: First Slice"},
+        #Games_List=re.search('"appid":',Games_List)
+        test=re.findall(r'\b4[0-9]*,', Games_string)
+        EntryR = re.compile(r"\{[^}]*\}", re.IGNORECASE)
+        Games_List=EntryR.findall(Games_string)
+        GameIDR=re.compile(r'(?<="appid":)[0-9]+')
+        GameID_List=GameIDR.findall(Games_string)
+        GameNameR=re.compile(r'(?<="name":")(?:[^"]|"")*')
+        GameName_List=GameNameR.findall(Games_string)
+        
+        #Games_Dict=dict(zip(GameID_List, GameName_List))
+            
+        return {"GIDL":GameID_List, "GNL":GameName_List}
+    else:
+        return {"GIDL":[],"GNL":[]}
+
+def List_Client_Games():
+    
+    last_appid=0 
+    max_results=50000
+    
+    url="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+    params = {
+        "key": API_KEY_Steam,
+        "steamid":USER_ID_Steam,
+        "include_played_free_games":True,
+        "include_appinfo":True,
+        "include_extended_appinfo":True
+        
+    }
+    #Returns like this IF "include_extended_appinfo":False :
+    #{"appid":210970,"name":"The Witness","playtime_forever":1896,"img_icon_url":"5406b4e33862420abfb60a23e581cad2a1ec85f7","has_community_visible_stats":true,"playtime_windows_forever":363,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1639273581,"playtime_disconnected":0}
+    #{"appid":8190,"name":"Just Cause 2","playtime_forever":49,"img_icon_url":"73582e392a2b9413fe93b011665a5b9cf26ff175","has_community_visible_stats":true,"playtime_windows_forever":0,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1508424672,"playtime_disconnected":0}
+    #use IMG url as follows:
+    #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_ICON_URL.jpg, replacing "APPID" and "IMG_ICON_URL" as necessary.
+    #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_LOGO_URL.jpg, replacing "APPID" and "IMG_LOGO_URL" as necessary.
+    
+    #Source: https://wiki.teamfortress.com/wiki/WebAPI/GetOwnedGames
+    
+    #sonst mit =True:
+    #{"appid":220200,"name":"Kerbal Space Program","playtime_forever":28444,"img_icon_url":"6dc8c1377c6b0ffedaeaec59c253f8c33fb3e62b","playtime_windows_forever":17874,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1736608738,"capsule_filename":"library_600x900.jpg","has_workshop":true,"has_market":false,"has_dlc":true,"playtime_disconnected":0}
+        
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+        print(response.text)
+        
+    except requests.exceptions.RequestException as e:
+        print(f"   ❌ Fehler: {e}")
+        print(response.text)
+    
+  
+    #print(response.headers)
+    #print(response.text)
+    if response.status_code==200:
+        Games_string=response.text.removeprefix('{"applist":{"apps":[').removesuffix("]}}")
         #Games_List=Games_List.removeprefix('{"applist":{"apps":[')
         #Games_List=Games_List.removesuffix("]}}")
         #,{"appid":400,"name":"Portal"},{"appid":410,"name":"Portal: First Slice"},
@@ -98,17 +195,17 @@ def Fill_GameName():
 #https://partner.steamgames.com/doc/webapi/ISteamApps#GetAppBuilds
 #https://steamapi.xpaw.me/#ISteamApps
 IsConnected=Connect_Check()
-GamesLists=List_Games()
+GamesLists=List_Client_Games()
 
 if Steam_running() == False:
-    os.startfile("C:\Program Files (x86)\Steam\Steam.exe")
+    os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
 
 #os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
 
 def FetchImage():
 
     headers = {
-            "Authorization": f"Bearer {API_KEY}"
+            "Authorization": f"Bearer {API_KEY_SteamGrid}"
         }
     params = {
 'styles':'official',
@@ -127,170 +224,11 @@ def FetchImage():
 #todo: Build small Interface. Build Way to save to External Flash Chip, then see how to get the Data Back again? Way to boot booth funcs?
 
 
-# ======== CONFIG ========
-#filename = "hornchen.jpg"
-filename="apetrui.png"
-width, height = 200, 200   # Displaygröße
-output_name = "epd_image"  # Name des C-Arrays
-port = "COM6"        # deinen COM-Port anpassen
-Baudrate = 115200
-Chunk_Size = 256     # Größe der Blöcke für STM32
-# ========================
 
-
-
-def SendImage():
-    #---------------------------------------------------------------------------------------------------
-    #---------------------------------------------------------------------------------------------------
-    # Bild öffnen, in 1-bit konvertieren
-    #img = Image.open(filename).convert('1')  
-    #img = img.resize((width, height))  # sicherstellen, dass es passt
-
-    # Bild öffnen, in Graustufen konvertieren
-    #!img = Image.open(filename).convert('L')  # 'L' = 8-bit grayscale
-    img=FetchImage()
-    img = img.resize((width, height), PILImage.Resampling.LANCZOS)
-
-    # Floyd-Steinberg Dithering auf 1-Bit anwenden
-    img_dithered = img.convert('1')  # PIL macht automatisch FS-Dither
-
-    img_dithered =PIL.ImageOps.invert(img_dithered)
-    img_dithered=PIL.ImageOps.mirror(img_dithered)
-
-
-    data = []
-
-    for y in range(height):
-        for x in range(0, width, 8):
-            byte = 0
-            for bit in range(8):
-                px = img_dithered.getpixel((x + bit, y))
-                # Pillow: 0 = schwarz, 255 = weiß
-                if px == 0:
-                    byte |= (1 << (7 - bit))  # MSB zuerst
-            data.append(byte)
-
-    epd_bytes = bytearray()
-    for y in range(height):
-        byte = 0
-        bit_count = 0
-        for x in range(width):
-            pixel = img_dithered.getpixel((x, y))
-            byte = (byte << 1) | (0 if pixel else 1)  # 0=weiß, 1=schwarz
-            bit_count += 1
-            if bit_count == 8:
-                epd_bytes.append(byte)
-                byte = 0
-                bit_count = 0
-        if bit_count != 0:  # Restbits auffüllen
-            byte = byte << (8 - bit_count)
-            epd_bytes.append(byte)
-
-    print(f"Bytes für E-Ink: {len(epd_bytes)}")
-
-    # ------------------------
-    # Verbindung öffnen und senden
-    # ------------------------
-    ser = serial.Serial(port, Baudrate, timeout=1)
-    time.sleep(2)  # STM bereit machen
-
-    for i in range(0, len(epd_bytes), Chunk_Size):
-        chunk = epd_bytes[i:i+Chunk_Size]
-        ser.write(chunk)
-        time.sleep(0.01)  # STM kann verarbeiten
-
-    print("Bild gesendet!")
-    ser.close()
-
-    # Ausgabe als C-Array
-    """print(f"const uint8_t {output_name}[] = {{")
-    for i, b in enumerate(data):
-        print(f"0x{b:02X}, ", end='')
-        if (i + 1) % 16 == 0:
-            print()
-    print("\n};")"""""
-
-    #---------------------------------------------------------------------------------------------------
-    #---------------------------------------------------------------------------------------------------
 from tkinter import *
 from tkinter import ttk
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
-
-def SelectImage():
-    filename = askopenfilename() # show an "Open" dialog box and return the path to the selected file
-    print(filename)
-    #---------------------------------------------------------------------------------------------------
-    #---------------------------------------------------------------------------------------------------
-    # Bild öffnen, in 1-bit konvertieren
-    #img = Image.open(filename).convert('1')  
-    #img = img.resize((width, height))  # sicherstellen, dass es passt
-
-    # Bild öffnen, in Graustufen konvertieren
-    img = PILImage.open(filename).convert('L')  # 'L' = 8-bit grayscale
-    img = img.resize((width, height), PILImage.Resampling.LANCZOS)
-    # Floyd-Steinberg Dithering auf 1-Bit anwenden
-    img_dithered = img.convert('1')  # PIL macht automatisch FS-Dither
-
-    img_dithered =PIL.ImageOps.invert(img_dithered)
-    img_dithered=PIL.ImageOps.mirror(img_dithered)
-
-    data = []
-
-    for y in range(height):
-        for x in range(0, width, 8):
-            byte = 0
-            for bit in range(8):
-                px = img_dithered.getpixel((x + bit, y))
-                # Pillow: 0 = schwarz, 255 = weiß
-                if px == 0:
-                    byte |= (1 << (7 - bit))  # MSB zuerst
-            data.append(byte)
-
-    epd_bytes = bytearray()
-    for y in range(height):
-        byte = 0
-        bit_count = 0
-        for x in range(width):
-            pixel = img_dithered.getpixel((x, y))
-            byte = (byte << 1) | (0 if pixel else 1)  # 0=weiß, 1=schwarz
-            bit_count += 1
-            if bit_count == 8:
-                epd_bytes.append(byte)
-                byte = 0
-                bit_count = 0
-        if bit_count != 0:  # Restbits auffüllen
-            byte = byte << (8 - bit_count)
-            epd_bytes.append(byte)
-
-    print(f"Bytes für E-Ink: {len(epd_bytes)}")
-
-    # ------------------------
-    # Verbindung öffnen und senden
-    # ------------------------
-    ser = serial.Serial(port, Baudrate, timeout=1)
-    time.sleep(2)  # STM bereit machen
-
-    for i in range(0, len(epd_bytes), Chunk_Size):
-        chunk = epd_bytes[i:i+Chunk_Size]
-        ser.write(chunk)
-        time.sleep(0.01)  # STM kann verarbeiten
-
-    print("Bild gesendet!")
-    ser.close()
-
-    # Ausgabe als C-Array
-    """print(f"const uint8_t {output_name}[] = {{")
-    for i, b in enumerate(data):
-        print(f"0x{b:02X}, ", end='')
-        if (i + 1) % 16 == 0:
-            print()
-    print("\n};")"""""
-
-    #---------------------------------------------------------------------------------------------------
-    #---------------------------------------------------------------------------------------------------
-    
-
 
 #print(Find_GameID("Portal",GamesLists))
 #print(Find_GameName(400,GamesLists))
@@ -313,8 +251,4 @@ NameField=ttk.Entry(IDThing,text="GAMENAME")
 NameField.pack()
 
 
-ttk.Label(root,text="Image Selection/Sending").pack()
-ttk.Button(root,text="Send Game Image",command=SendImage).pack()
-ttk.Label(root,text="OR").pack()
-ttk.Button(root,text="Select and Send Image from Disk",command=SelectImage).pack()
 root.mainloop()
