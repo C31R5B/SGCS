@@ -16,7 +16,7 @@ import PIL.ImageOps
 import time
 import serial
 
-API_KEY='42ff83c071ec2ecb5c3bd4088a0d9f72'
+
 
 def Connect_Check():
     try:
