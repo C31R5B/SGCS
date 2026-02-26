@@ -6,12 +6,13 @@ import re
 
 import json
 import urllib
+from urllib.parse import urlparse
 from io import StringIO  
 from io import BytesIO
 
 
 from PIL import Image as PILImage
-
+from PIL import ImageTk
 try:
     with open("C:/Users/thecr/Nextcloud/AAA_SCGS/Key.txt") as f:
         key_data = f.readlines()
@@ -24,9 +25,8 @@ key_data=key_data[0].split()
 
 API_KEY_Steam=key_data[1]
 API_KEY_SteamGrid=key_data[3]
-USER_ID_Steam=key_data[5]
-key_data=""
-
+USER_ID_Steam_Standard=key_data[5]
+USER_ID_Steam=USER_ID_Steam_Standard
 
 def Connect_Check():
     try:
@@ -95,7 +95,9 @@ def List_Games():
 
 def List_Owned_Client_Games():
     try:
-        with open("Games.txt") as f:
+        # with open("Games.txt") as f:
+        #! Temporary workaround
+        with open("kdjr.txt") as f:   
                 Resp = f.read()
         Resp=json.loads(Resp)
         Games=Resp["response"]
@@ -206,6 +208,7 @@ def GUI_FindGameID():
         global Playtime_v
         global Installed_v
         global Achievement_Rate_v
+        GamesList=List_Owned_Client_Games()
         Name=NameField.get()
         GameID=0
         for i in range(0,len(GamesList)):
@@ -252,27 +255,27 @@ def Find_GameStats(AppID):
 
 #Global Achievements Percentages
 
-    url="https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
-    params = {
-        "gameid":AppID
-    }
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        #print(response.text)
+    # url="https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
+    # params = {
+    #     "gameid":AppID
+    # }
+    # try:
+    #     response = requests.get(url, params=params)
+    #     response.raise_for_status()
+    #     #print(response.text)
         
-    except requests.exceptions.RequestException as e:
-        print(f"   ❌ Fehler: {e}")
-        print(response.text)
+    # except requests.exceptions.RequestException as e:
+    #     print(f"   ❌ Fehler: {e}")
+    #     print(response.text)
     
 
-    #print(response.headers)
-    #print(response.text)
-    if response.status_code==200:
-        GameAchievements_G=json.loads(response.text)
-        print(response.text)
-        with open('Achievements_Global.txt', 'w') as filehandle:
-            json.dump(response.text, filehandle)   
+    # #print(response.headers)
+    # #print(response.text)
+    # if response.status_code==200:
+    #     GameAchievements_G=json.loads(response.text)
+    #     print(response.text)
+    #     with open('Achievements_Global.txt', 'w') as filehandle:
+    #         json.dump(response.text, filehandle)   
         
         
 
@@ -321,6 +324,7 @@ def Find_GameStats(AppID):
     except requests.exceptions.RequestException as e:
         print(f"   ❌ Fehler: {e}")
         print(response.text)
+        Achievement_Rate.configure(text="Not Public!")
     
 
     #print(response.headers)
@@ -400,12 +404,113 @@ if Steam_running() == False:
     os.startfile(path)
 
 #os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
+#https://steamcommunity.com/id/fazbear06/
+def GUI_FindSteamUser():
+    #sets the USER_ID_Steam variable and Displays a connection status alongside the Nickname
+    global USER_ID_Steam
+    Steam_URL=UserNameField.get()
+    path = urlparse(Steam_URL).path.rstrip('/')  # Remove trailing slash if any
+    # Path will be something like '/profiles/76561197960435530' or '/id/gabeloganewell'
+    parts = path.split('/')
+    if len(parts)>3:
+        Status_User.configure(text="Unable to resolve from Input, Check Input!")
+        return
+    print(path)
+    if len(parts)>1:
+        PathType=parts[1]
+        ID=parts[2]
+        if PathType=="id":
+            url="https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/"
+            params = {
+                "key": API_KEY_Steam,
+                "vanityurl":ID,
+                "url_type":1
+            }
+            try:
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                #print(response.text)
+                
+            except requests.exceptions.RequestException as e:
+                print(f"   ❌ Fehler: {e}")
+                print(response.text)
+            
+            #print(response.headers)
+            #print(response.text)
+            if response.status_code==200:
+                UserID=json.loads(response.text)
+                UserID=UserID["response"]
+                UserID=UserID["steamid"]
+                USER_ID_Steam=UserID
+                print(response.text)
+        else:
+            USER_ID_Steam=ID
+    else:
+        PathType=""
+        ID=parts[0]
+        if len(ID)==17 and ID[0:2]=="765":
+            USER_ID_Steam=ID
+        else:
+            url="https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/"
+            params = {
+                "key": API_KEY_Steam,
+                "vanityurl":ID,
+                "url_type":1
+            }
+            try:
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                #print(response.text)
+                
+            except requests.exceptions.RequestException as e:
+                print(f"   ❌ Fehler: {e}")
+                print(response.text)
+            
+            #print(response.headers)
+            #print(response.text)
+            if response.status_code==200:
+                UserID=json.loads(response.text)
+                UserID=UserID["response"]
+                UserID=UserID["steamid"]
+                USER_ID_Steam=UserID
+                print(response.text)
+                
+    url="https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/"
+    params = {
+        "key": API_KEY_Steam,
+        "steamids":USER_ID_Steam
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        #print(response.text)
+        
+    except requests.exceptions.RequestException as e:
+        print(f"   ❌ Fehler: {e}")
+        print(response.text)
+    
+    #print(response.headers)
+    #print(response.text)
+    if response.status_code==200:
+        UserInfo=json.loads(response.text)
+        Nickname=UserInfo["response"]["players"][0]["personaname"]
+        ProfileURL=UserInfo["response"]["players"][0]["profileurl"]
+        ProfileAvatarURL=UserInfo["response"]["players"][0]["avatarfull"]
+        print(response.text)
+    Status="User "+ str(Nickname)+" registered under URL:\n"+str(ProfileURL)
+    Status_User.configure(text=Status)    
+    with urllib.request.urlopen(ProfileAvatarURL) as u:
+        raw_data = u.read()
+
+    image = PILImage.open(BytesIO(raw_data))
+    photo = ImageTk.PhotoImage(image)
+    Picture.configure(image=photo)
+    Picture.image = photo 
 
 
 
 #BitMap-Processing. maybe even for dithering and the likes
 #todo: Build small Interface. Build Way to save to External Flash Chip, then see how to get the Data Back again? Way to boot booth funcs?
-
 
 
 from tkinter import *
@@ -421,18 +526,23 @@ root.attributes("-fullscreen", False)
 FrameThing=ttk.Frame(root,padding=30,relief="groove")
 FrameThing.pack(side="left")
 
-ttk.Button(FrameThing, text="Quit", command=root.destroy).pack(side="top")
+ttk.Button(FrameThing, text="Quit", command=root.destroy).pack()
+Picture=ttk.Label(FrameThing,padding=10)
+Picture.pack()
 ttk.Label(FrameThing,text="\n").pack()
-ttk.Label(FrameThing,text="\n").pack()
+
 ttk.Label(FrameThing,text="Input your Steam URL, SteamID or Custom ID here").pack()
 UserNameField=ttk.Entry(FrameThing)
 UserNameField.pack()
+ttk.Button(FrameThing, text="Find Steam Profile",command=GUI_FindSteamUser).pack()
+Status_User=ttk.Label(FrameThing,text="\n")
+Status_User.pack()
+
 
 ttk.Label(FrameThing,text="\n").pack()
-ttk.Label(FrameThing,text="GameName").pack()
+ttk.Label(FrameThing,text="Game Name").pack()
 NameField=ttk.Entry(FrameThing)
 NameField.pack()
-ttk.Label(FrameThing,text="\n").pack()
 ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
 
 DiagnoseField=ttk.Frame(root,padding=30,relief="groove")
@@ -467,7 +577,6 @@ Achievement_Rate_v=0
 
 ttk.Label(DiagnoseField,text="\n").pack()
 ttk.Button(DiagnoseField, text="Launch Game",command=Launch_Game).pack()
-
 
 root.mainloop()
 
