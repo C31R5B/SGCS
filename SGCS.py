@@ -98,7 +98,7 @@ def List_Owned_Client_Games():
     try:
         with open("Games.txt") as f:
                 Resp = f.read()
-        Resp=json.loads(response.text)
+        Resp=json.loads(Resp)
         Games=Resp["response"]
         Gamecount=Games["game_count"]
         Games=Games["games"] 
@@ -200,16 +200,135 @@ def GUI_FindGameID():
         global AppID_v
         global GName_v
         global Playtime_v
+        global Installed_v
+        global Achievement_Rate_v
         Name=NameField.get()
+        GameID=0
         for i in range(0,len(GamesList)):
             Data=GamesList[i]
             if Name == Data["name"]:
                 GameID= Data["appid"]
+                Playtime_v=Data["playtime_forever"]
                 break
-        AppID.configure(text=GameID)
-        AppID_v=GameID
-        GName.configure(text=NameField.get())
-        GName_v=NameField.get()
+        if GameID ==0:
+            AppID.configure(text="Not Found")
+            GName.configure(text="Check Spelling?")
+            Playtime.configure(text="N/A")
+            Installed.configure(text="N/A")
+            AppID_v=0
+            GName_v=""
+            Installed_v=False
+            Achievement_Rate_v=0
+            Achievement_Rate.configure(text="N/A")
+        else:
+            AppID.configure(text=GameID)
+            AppID_v=GameID
+            GName.configure(text=NameField.get())
+            GName_v=NameField.get()
+            Playtime.configure(text=str(round(Playtime_v/60,1)))
+            Find_GameStats(GameID)
+            Installed_v=Fetch_Install_State(GameID)
+            Installed.configure(text=str(Installed_v))
+            
+        
+def Fetch_Install_State(AppID):
+    Installed_GamesSet=List_Installed_Client_Games()
+    if AppID in Installed_GamesSet:
+        return True
+    else:
+        return False
+       
+        
+def Find_GameStats(AppID):
+    global Achievement_Rate_v
+# Takes the AppID from the Currently "selected" Game
+#Not Called from GUI, only from other Functions
+
+#Game Stats and Achievements
+
+
+    # url="https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
+    # params = {
+    #     "key": API_KEY_Steam,
+    #     "steamid":USER_ID_Steam,
+    #     "appid":AppID
+    # }
+    # try:
+    #     response = requests.get(url, params=params)
+    #     response.raise_for_status()
+    #     #print(response.text)
+        
+    # except requests.exceptions.RequestException as e:
+    #     print(f"   ❌ Fehler: {e}")
+    #     print(response.text)
+    
+
+    # #print(response.headers)
+    # #print(response.text)
+    # if response.status_code==200:
+    #     GameAchievements=json.loads(response.text)
+    #     print(response.text)
+        
+        
+#User Achievements
+    url="https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/"
+    params = {
+        "key": API_KEY_Steam,
+        "steamid":USER_ID_Steam,
+        "appid":AppID
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        #print(response.text)
+        
+    except requests.exceptions.RequestException as e:
+        print(f"   ❌ Fehler: {e}")
+        print(response.text)
+    
+
+    #print(response.headers)
+    #print(response.text)
+    if response.status_code==200:
+        UserAchievements=json.loads(response.text)
+        # print(response.text)
+        Achievement_List=UserAchievements["playerstats"]
+        Achievement_List=Achievement_List["achievements"]
+        Achievement_Nr=len(Achievement_List)
+        Achieved_Nr=0
+        for i in range(0,Achievement_Nr):
+            Achievement=Achievement_List[i]
+            if Achievement["achieved"]==1:
+                Achieved_Nr+=1
+                
+        Achievement_Rate_v=round(Achieved_Nr/Achievement_Nr*100,2)
+        Achievement_Rate.configure(text=str(Achievement_Rate_v)+"%")
+        
+        
+#User Stats
+
+    # url="https://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v2/"
+    # params = {
+    #     "key": API_KEY_Steam,
+    #     "steamid":USER_ID_Steam,
+    #     "appid":AppID
+    # }
+    # try:
+    #     response = requests.get(url, params=params)
+    #     response.raise_for_status()
+    #     #print(response.text)
+        
+    # except requests.exceptions.RequestException as e:
+    #     print(f"   ❌ Fehler: {e}")
+    #     print(response.text)
+    
+
+    # #print(response.headers)
+    # #print(response.text)
+    # if response.status_code==200:
+    #     UserStats=json.loads(response.text)
+    #     print(response.text)
+
 
 
 
@@ -238,8 +357,6 @@ def FetchImage():
 #https://steamapi.xpaw.me/#ISteamApps
 IsConnected=Connect_Check()
 GamesList=List_Owned_Client_Games()
-
-Installed_GamesSet=List_Installed_Client_Games()
 
 
 if Steam_running() == False:
@@ -277,29 +394,33 @@ ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
 
 DiagnoseField=ttk.Frame(root,padding=30,relief="groove")
 DiagnoseField.pack(side="right")
-ttk.Label(DiagnoseField,text="AppID:").pack()
+ttk.Label(DiagnoseField,text="App-ID:").pack()
 AppID=ttk.Label(DiagnoseField,text="xxxxxx")
 AppID.pack()
 AppID_v=0
 
 
-ttk.Label(DiagnoseField,text="\nGName:").pack()
+ttk.Label(DiagnoseField,text="\nGame Name:").pack()
 GName=ttk.Label(DiagnoseField,text="xxxxxx")
 GName.pack()
 GName_v=""
 
 
 
-ttk.Label(DiagnoseField,text="\nPlaytime:").pack()
+ttk.Label(DiagnoseField,text="\nPlaytime [h]:").pack()
 Playtime=ttk.Label(DiagnoseField,text="xxxxxx")
 Playtime.pack()
 Playtime_v=0
 
-ttk.Label(DiagnoseField,text="\nInstalled:").pack()
+ttk.Label(DiagnoseField,text="\nInstalled [True/False]:").pack()
 Installed=ttk.Label(DiagnoseField,text="xxxxxx")
 Installed.pack()
 Installed_v=False
 
+ttk.Label(DiagnoseField,text="\nAchievement Rate [%]:").pack()
+Achievement_Rate=ttk.Label(DiagnoseField,text="xxxxxx")
+Achievement_Rate.pack()
+Achievement_Rate_v=0
 
 ttk.Label(DiagnoseField,text="\n").pack()
 ttk.Button(DiagnoseField, text="Launch Game",command=Launch_Game).pack()
@@ -310,3 +431,6 @@ root.mainloop()
 
 
 #New API:https://partner.steamgames.com/doc/webapi/IStoreService#GetAppList
+
+# For Finding out stuff Like Achievement Completion Rate
+# https://partner.steamgames.com/doc/webapi/ISteamUserStats
