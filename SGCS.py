@@ -7,7 +7,6 @@ import requests
 import os
 import subprocess
 import re
-
 import json
 import urllib
 import urllib.request
@@ -177,7 +176,7 @@ def List_Installed_Client_Games() -> set[int]:
 
 #1988540=ZSC
 
-def GUI_FindGameID():
+def GUI_FindGameID() -> None:
         global GamesList
         global AppID_v
         global GName_v
@@ -214,7 +213,7 @@ def GUI_FindGameID():
             _=Installed.configure(text=str(Installed_v))
             
         
-def Fetch_Install_State(AppID:int):
+def Fetch_Install_State(AppID:int) -> bool:
     Installed_GamesSet=List_Installed_Client_Games()
     if AppID in Installed_GamesSet:
         return True
@@ -480,8 +479,25 @@ def GUI_FindSteamUser():
         print(response.text)
     
 
+def PackageStats() -> dict[str, int | str | float]:
+    global AppID_v
+    global GName_v
+    global Playtime_v
+    global Installed_v
+    global Achievement_Rate_v
+    GameStats={"appid":AppID_v,"name":GName_v,"playtime_forever":Playtime_v,"achievement_rate":Achievement_Rate_v}
+    return GameStats
 
-
+def SendGameStats():
+    GameStats=PackageStats()
+    try:
+        with open(f'{GameStats["appid"]}.txt', 'w') as filehandle:
+            json.dump(GameStats, filehandle) 
+            SendStatus["text"]=f"Success! Sent FileID {GameStats["appid"]}"
+            return True
+    except Exception as e: 
+        SendStatus["text"]=f"Error! Encounterd {e}"
+        return False   
 #BitMap-Processing. maybe even for dithering and the likes
 #todo: Build small Interface. Build Way to save to External Flash Chip, then see how to get the Data Back again? Way to boot booth funcs?
 
@@ -516,6 +532,10 @@ ttk.Label(FrameThing,text="Game Name").pack()
 NameField=ttk.Entry(FrameThing)
 NameField.pack()
 ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
+ttk.Label(FrameThing,text="\n").pack()
+ttk.Button(FrameThing, text="Send found Game-Stats",command=SendGameStats).pack()
+SendStatus=ttk.Label(FrameThing,text="\n")
+SendStatus.pack()
 
 DiagnoseField=ttk.Frame(root,padding=30,relief="groove")
 DiagnoseField.pack(side="left")
