@@ -108,12 +108,17 @@ def List_Owned_Client_Games():
             
         
         url="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+        
+        #DLC Fetching? https://api.steampowered.com/IStoreBrowseService/GetDLCForApps/v1/
+        
+        
         params = {
             "key": API_KEY_Steam,
             "steamid":USER_ID_Steam,
             "include_played_free_games":True,
             "include_appinfo":True,
-            "include_extended_appinfo":True
+            "include_extended_appinfo":True,
+            "include_free_sub":True
             
         }
         #Returns like this IF "include_extended_appinfo":False :
@@ -244,30 +249,63 @@ def Find_GameStats(AppID):
 # Takes the AppID from the Currently "selected" Game
 #Not Called from GUI, only from other Functions
 
+
+#! Damit kann man sowohl die Achievement Completion Rate als auch sowas wie Rarest Achievement fetchen, Man kriegt sogar n link für die Bilder der Achievements!
+
+#Global Achievements Percentages
+
+    url="https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
+    params = {
+        "gameid":AppID
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        #print(response.text)
+        
+    except requests.exceptions.RequestException as e:
+        print(f"   ❌ Fehler: {e}")
+        print(response.text)
+    
+
+    #print(response.headers)
+    #print(response.text)
+    if response.status_code==200:
+        GameAchievements_G=json.loads(response.text)
+        print(response.text)
+        with open('Achievements_Global.txt', 'w') as filehandle:
+            json.dump(response.text, filehandle)   
+        
+        
+
+
 #Game Stats and Achievements
 
 
-    # url="https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
-    # params = {
-    #     "key": API_KEY_Steam,
-    #     "steamid":USER_ID_Steam,
-    #     "appid":AppID
-    # }
-    # try:
-    #     response = requests.get(url, params=params)
-    #     response.raise_for_status()
-    #     #print(response.text)
+    url="https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
+    params = {
+        "key": API_KEY_Steam,
+        "steamid":USER_ID_Steam,
+        "appid":AppID
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        #print(response.text)
         
-    # except requests.exceptions.RequestException as e:
-    #     print(f"   ❌ Fehler: {e}")
-    #     print(response.text)
+    except requests.exceptions.RequestException as e:
+        print(f"   ❌ Fehler: {e}")
+        print(response.text)
     
 
-    # #print(response.headers)
-    # #print(response.text)
-    # if response.status_code==200:
-    #     GameAchievements=json.loads(response.text)
-    #     print(response.text)
+    #print(response.headers)
+    #print(response.text)
+    if response.status_code==200:
+        GameAchievements=json.loads(response.text)
+        #print(response.text)
+        with open('Achievements.txt', 'w') as filehandle:
+            json.dump(response.text, filehandle)   
+        
         
         
 #User Achievements
@@ -393,7 +431,7 @@ ttk.Label(FrameThing,text="\n").pack()
 ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
 
 DiagnoseField=ttk.Frame(root,padding=30,relief="groove")
-DiagnoseField.pack(side="right")
+DiagnoseField.pack(side="left")
 ttk.Label(DiagnoseField,text="App-ID:").pack()
 AppID=ttk.Label(DiagnoseField,text="xxxxxx")
 AppID.pack()
