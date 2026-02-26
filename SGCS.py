@@ -59,7 +59,7 @@ def List_Games():
         # "include_software": False,    # Keine Software
         # "include_videos": False,       # Keine Videos
         # "include_hardware": False,     # Keine Hardware
-         "max_results": max_results,    # Maximal 50.000 pro Seite
+        "max_results": max_results,    # Maximal 50.000 pro Seite
         # "last_appid": last_appid       # Startpunkt für die nächste Seite
     }
 
@@ -77,7 +77,7 @@ def List_Games():
     except requests.exceptions.RequestException as e:
         print(f"   ❌ Fehler: {e}")
     
-  
+
     #print(response.headers)
     #print(response.text)
     if response.status_code==200:
@@ -214,11 +214,11 @@ def GUI_FindGameID():
         global Playtime_v
         GameIDs=list(GamesLists["ID_L"])
         GameNames=list(GamesLists["Name_L"])
-        GameID=GameIDs[GameNames.index(NameField.get())]
+        GameID=GameIDs[GameNames.index(GameNameField.get())]
         AppID.configure(text=GameID)
         AppID_v=GameID
-        GName.configure(text=NameField.get())
-        GName_v=NameField.get()
+        GName.configure(text=GameNameField.get())
+        GName_v=GameNameField.get()
 
 
 
@@ -273,11 +273,17 @@ root.title("SGCS 0.1")
 root.attributes("-fullscreen", False)
 FrameThing=ttk.Frame(root,padding=30,relief="groove")
 FrameThing.pack(side="left")
-ttk.Button(FrameThing, text="Quit", command=root.destroy).pack()
+ttk.Button(FrameThing, text="Quit", command=root.destroy).pack(side="top")
+ttk.Label(FrameThing,text="\n").pack()
+ttk.Label(FrameThing,text="\n").pack()
+ttk.Label(FrameThing,text="Input your Steam URL, SteamID or Custom ID here").pack()
+UserNameField=ttk.Entry(FrameThing)
+UserNameField.pack()
+
 ttk.Label(FrameThing,text="\n").pack()
 ttk.Label(FrameThing,text="GameName").pack()
-NameField=ttk.Entry(FrameThing)
-NameField.pack()
+GameNameField=ttk.Entry(FrameThing)
+GameNameField.pack()
 ttk.Label(FrameThing,text="\n").pack()
 ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
 
