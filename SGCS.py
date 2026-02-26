@@ -81,37 +81,29 @@ def List_Games():
     #print(response.headers)
     #print(response.text)
     if response.status_code==200:
-        Games_string=response.text.removeprefix('{"applist":{"apps":[').removesuffix("]}}")
-        #Games_List=Games_List.removeprefix('{"applist":{"apps":[')
-        #Games_List=Games_List.removesuffix("]}}")
-        #,{"appid":400,"name":"Portal"},{"appid":410,"name":"Portal: First Slice"},
-        #Games_List=re.search('"appid":',Games_List)
-        test=re.findall(r'\b4[0-9]*,', Games_string)
-        EntryR = re.compile(r"\{[^}]*\}", re.IGNORECASE)
-        Games_List=EntryR.findall(Games_string)
-        GameIDR=re.compile(r'(?<="appid":)[0-9]+')
-        GameID_List=GameIDR.findall(Games_string)
-        GameNameR=re.compile(r'(?<="name":")(?:[^"]|"")*')
-        GameName_List=GameNameR.findall(Games_string)
+
+        Resp=json.loads(response.text)
+        Games=Resp["response"]
+        Gamecount=Games["game_count"]
+        Games=Games["games"]
         
-        #Games_Dict=dict(zip(GameID_List, GameName_List))
-            
-        return {"ID_L":GameID_List, "Name_L":GameName_List}
+        
+        # with open('Games.txt', 'w') as filehandle:
+        #     json.dump(Resp, filehandle)    
+        return Games
     else:
-        return {"ID_L":[],"Name_L":[]}
+        return {}
 
 def List_Owned_Client_Games():
     try:
-        with open("GameIDs.txt") as f:
-                GameNameR = f.read()
-        with open("GameNames.txt") as f:
-                GameIDR = f.read()      
+        with open("Games.txt") as f:
+                Resp = f.read()
+        Resp=json.loads(response.text)
+        Games=Resp["response"]
+        Gamecount=Games["game_count"]
+        Games=Games["games"] 
         
-        GameIDR=re.compile(r'(?<=")[0-9]+')
-        GameID_List=GameIDR.findall(Games_string)
-        GameNameR=re.compile(r'(?<=")(?:[^"]|"")*')
-        GameName_List=GameNameR.findall(Games_string)  
-        return {"ID_L":GameID_List, "Name_L":GameName_List}
+        return Games
     except Exception as e:
             
         
@@ -150,39 +142,35 @@ def List_Owned_Client_Games():
         #print(response.headers)
         #print(response.text)
         if response.status_code==200:
-            Games_string=response.text.removeprefix('{"applist":{"apps":[').removesuffix("]}}")
-            #Games_List=Games_List.removeprefix('{"applist":{"apps":[')
-            #Games_List=Games_List.removesuffix("]}}")
-            #,{"appid":400,"name":"Portal"},{"appid":410,"name":"Portal: First Slice"},
-            #Games_List=re.search('"appid":',Games_List)
-            test=re.findall(r'\b4[0-9]*,', Games_string)
-            EntryR = re.compile(r"\{[^}]*\}", re.IGNORECASE)
-            Games_List=EntryR.findall(Games_string)
-            GameIDR=re.compile(r'(?<="appid":)[0-9]+')
-            GameID_List=GameIDR.findall(Games_string)
-            GameNameR=re.compile(r'(?<="name":")(?:[^"]|"")*')
-            GameName_List=GameNameR.findall(Games_string)
+
+            Resp=json.loads(response.text)
+            Games=Resp["response"]
+            Gamecount=Games["game_count"]
+            Games=Games["games"]
             
-            #Games_Dict=dict(zip(GameID_List, GameName_List))
-
-
-            with open('GameIDs.txt', 'w') as filehandle:
-                json.dump(GameID_List, filehandle)  
-            with open('GameNames.txt', 'w') as filehandle:
-                json.dump(GameName_List, filehandle)     
-            return {"ID_L":GameID_List, "Name_L":GameName_List}
+            with open('Games.txt', 'w') as filehandle:
+                json.dump(Resp, filehandle)    
+            return Games
         else:
-            return {"ID_L":[],"Name_L":[]}
+            return {}
 
 def List_Installed_Client_Games():
+    #Actually Returns a Set!
     with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
         library = f.read()
     libraryFolderHeader='"libraryfolders"\n{\n\t"0"\n\t{\n\t\t"path"\t\t"C:\\\\Program Files (x86)\\\\Steam"\n\t\t"label"\t\t""\n\t\t"contentid"\t\t"1611306386609458316"\n\t\t"totalsize"\t\t"0"\n\t\t"update_clean_bytes_tally"\t\t"2148087031"\n\t\t"time_last_update_verified"\t\t"1771937665"\n\t\t'
     library =library.removeprefix(libraryFolderHeader)
-    GameIDR=re.compile(r'[0-9]+')
-    GameID_List=GameIDR.findall(library)
-    GameName_List=[]
-    return {"ID_L":GameID_List, "Name_L":GameName_List}
+    Regex=re.compile(r'(?<="apps"\s{3}{\s{4})((\s*"\d+")*)')
+    GameID_Locations_List=Regex.findall(library)
+    GameID_set=set()
+    Regex=re.compile(r'\d+')
+    for i in range (0,len(GameID_Locations_List)):
+        List=GameID_Locations_List[i]
+        List=List[0]
+        List=Regex.findall(List)
+        for data in List:
+            GameID_set.add(data)
+    return GameID_set
 
 
 #1988540=ZSC
@@ -208,13 +196,16 @@ def Find_GameName(GameID:int,GamesLists):
         return GameNames[GameIDs.index(str(GameID))]
 
 def GUI_FindGameID():
-        global GamesLists
+        global GamesList
         global AppID_v
         global GName_v
         global Playtime_v
-        GameIDs=list(GamesLists["ID_L"])
-        GameNames=list(GamesLists["Name_L"])
-        GameID=GameIDs[GameNames.index(NameField.get())]
+        Name=NameField.get()
+        for i in range(0,len(GamesList)):
+            Data=GamesList[i]
+            if Name == Data["name"]:
+                GameID= Data["appid"]
+                break
         AppID.configure(text=GameID)
         AppID_v=GameID
         GName.configure(text=NameField.get())
@@ -228,8 +219,8 @@ def FetchImage():
             "Authorization": f"Bearer {API_KEY_SteamGrid}"
         }
     params = {
-'styles':'official',
-}
+        'styles':'official',
+        }
     IconQuery=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID.get()}",headers=headers,params=params)
     IconURL=re.findall((r'(?<="url":")[^"]*'),IconQuery.text)
     print(IconQuery.status_code)
@@ -246,11 +237,14 @@ def FetchImage():
 #https://partner.steamgames.com/doc/webapi/ISteamApps#GetAppBuilds
 #https://steamapi.xpaw.me/#ISteamApps
 IsConnected=Connect_Check()
-GamesLists=List_Owned_Client_Games()
-IGamesList=List_Installed_Client_Games()
+GamesList=List_Owned_Client_Games()
+
+Installed_GamesSet=List_Installed_Client_Games()
+
 
 if Steam_running() == False:
-    os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
+    path="C:/Program Files (x86)/Steam/Steam.exe"
+    os.startfile(path)
 
 #os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
 
@@ -300,6 +294,12 @@ ttk.Label(DiagnoseField,text="\nPlaytime:").pack()
 Playtime=ttk.Label(DiagnoseField,text="xxxxxx")
 Playtime.pack()
 Playtime_v=0
+
+ttk.Label(DiagnoseField,text="\nInstalled:").pack()
+Installed=ttk.Label(DiagnoseField,text="xxxxxx")
+Installed.pack()
+Installed_v=False
+
 
 ttk.Label(DiagnoseField,text="\n").pack()
 ttk.Button(DiagnoseField, text="Launch Game",command=Launch_Game).pack()
