@@ -124,18 +124,12 @@ def List_Owned_Client_Games(force_get:bool)  -> list[dict[str, int | str]]:
             "include_free_sub":True
             
         }
-        #Returns like this IF "include_extended_appinfo":False :
-        #{"appid":210970,"name":"The Witness","playtime_forever":1896,"img_icon_url":"5406b4e33862420abfb60a23e581cad2a1ec85f7","has_community_visible_stats":true,"playtime_windows_forever":363,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1639273581,"playtime_disconnected":0}
-        #{"appid":8190,"name":"Just Cause 2","playtime_forever":49,"img_icon_url":"73582e392a2b9413fe93b011665a5b9cf26ff175","has_community_visible_stats":true,"playtime_windows_forever":0,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1508424672,"playtime_disconnected":0}
         #use IMG url as follows:
         #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_ICON_URL.jpg, replacing "APPID" and "IMG_ICON_URL" as necessary.
         #http://media.steampowered.com/steamcommunity/public/images/apps/APPID/IMG_LOGO_URL.jpg, replacing "APPID" and "IMG_LOGO_URL" as necessary.
         
         #Source: https://wiki.teamfortress.com/wiki/WebAPI/GetOwnedGames
-        
-        #sonst mit =True:
-        #{"appid":220200,"name":"Kerbal Space Program","playtime_forever":28444,"img_icon_url":"6dc8c1377c6b0ffedaeaec59c253f8c33fb3e62b","playtime_windows_forever":17874,"playtime_mac_forever":0,"playtime_linux_forever":0,"playtime_deck_forever":0,"rtime_last_played":1736608738,"capsule_filename":"library_600x900.jpg","has_workshop":true,"has_market":false,"has_dlc":true,"playtime_disconnected":0}
-            
+
         response = requests.get(url, params=params)
         try:
             response.raise_for_status()
@@ -381,14 +375,12 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
 
 
 #https://store.steampowered.com/app/1210320/Potion_Craft_Alchemist_Simulator/
-#steam://rungameid/1637320
 #"C:\Program Files (x86)\Steam\Steam.exe"
 #https://store.steampowered.com/app/2749770/Galaxy_Burger/
 #https://partner.steamgames.com/doc/webapi/ISteamApps#GetAppBuilds
 #https://steamapi.xpaw.me/#ISteamApps
 
 #os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
-#https://steamcommunity.com/id/fazbear06/
 def GUI_FindSteamUser():
     #sets the USER_ID_Steam variable and Displays a connection status alongside the Nickname
     global USER_ID_Steam
@@ -498,7 +490,7 @@ def GUI_FindSteamUser():
     for i in range (0,len(tempList)):  
         name=tempList[i]["name"]
         temp.append(str(name))
-    ComboValues=temp
+    ComboValues=sorted(temp)
     NameField['values']=ComboValues 
 
 
