@@ -218,7 +218,7 @@ def GUI_FindGameID() -> None:
             Find_GameStats(GameID)
             Installed_v=Fetch_Install_State(GameID)
             _=Installed.configure(text=str(Installed_v))
-            photo=FetchImage(Game=Data,use_SteamGrid=False)
+            photo=FetchImage(Game=Data,use_SteamGrid=False,use_BlackWhite=True)             #? Switch the use_BlackWhite to get the normal Color 
             photo = ImageTk.PhotoImage(photo)
             _=GameIcon.configure(image=photo)
             GameIcon.image = photo   # pyright: ignore[reportAttributeAccessIssue]
@@ -354,7 +354,7 @@ def Find_GameStats(AppID:int):
     #     print(response.text)
 
 
-def FetchImage(Game,use_SteamGrid:bool) -> Image:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
     """Types possible are Grids, Logos, Icons.\n
     Returns a PIL"""
 
@@ -377,7 +377,8 @@ def FetchImage(Game,use_SteamGrid:bool) -> Image:  # pyright: ignore[reportUnkno
     url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{Game["appid"]}/{Game["img_icon_url"]}.jpg"
     response = requests.get(url)
     img = PILImage.open(BytesIO(response.content))#.convert('L')
-
+    if use_BlackWhite ==True:
+        img=img.convert(mode='L')
     return img 
 
 
