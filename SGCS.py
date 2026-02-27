@@ -99,14 +99,13 @@ def List_Games() -> list[dict[str, int | str]]:
         return [{"appid":int(),"name":"","playtime_forever":int()}]
 
 
-def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
+def List_Owned_Client_Games(force_get:bool)  -> list[dict[str, int | str]]:
     Games: list[dict[str, int | str]]
     try:
-        # with open("Games.txt") as f:
-        #! Temporary workaround
-        with open("kdjr.txt") as f:   
-                Resp = f.read()
-        Resp=json.loads(Resp)  # pyright: ignore[reportAny]
+        if force_get ==False:
+            with open("Games.txt") as f:
+                    Resp = f.read()
+        Resp=json.loads(Resp)  # pyright: ignore[reportAny, reportPossiblyUnboundVariable]
         Games=Resp["response"]["games"]   # pyright: ignore[reportAny]
 
         return Games
@@ -123,7 +122,7 @@ def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
             "steamid":USER_ID_Steam,
             "include_played_free_games":True,
             "include_appinfo":True,
-            "include_extended_appinfo":True,
+            "include_extended_appinfo":False,
             "include_free_sub":True
             
         }
@@ -187,9 +186,11 @@ def GUI_FindGameID() -> None:
         global Playtime_v
         global Installed_v
         global Achievement_Rate_v
-        GamesList=List_Owned_Client_Games()
+        global Logo_Icon_URL
+        GamesList=List_Owned_Client_Games(force_get=False)
         Name=NameField.get()
         GameID:int=0
+        Data=GamesList[0]
         for i in range(0,len(GamesList)):
             Data=GamesList[i]
             if Name == Data["name"]:
@@ -207,6 +208,7 @@ def GUI_FindGameID() -> None:
             Achievement_Rate_v=0
             _=Achievement_Rate.configure(text="N/A")
             _=GameIcon.configure(image=steam_pic)
+            Logo_Icon_URL=""
         else:
             _=AppID.configure(text=GameID)
             AppID_v=GameID
@@ -216,10 +218,11 @@ def GUI_FindGameID() -> None:
             Find_GameStats(GameID)
             Installed_v=Fetch_Install_State(GameID)
             _=Installed.configure(text=str(Installed_v))
-            photo=FetchImage()
+            photo=FetchImage(Game=Data,use_SteamGrid=False)
             photo = ImageTk.PhotoImage(photo)
             _=GameIcon.configure(image=photo)
             GameIcon.image = photo   # pyright: ignore[reportAttributeAccessIssue]
+            Logo_Icon_URL=f"http://media.steampowered.com/steamcommunity/public/images/apps/{Data["appid"]}/{Data["img_icon_url"]}.jpg"
 
 
 def Fetch_Install_State(AppID:int) -> bool:
@@ -351,7 +354,7 @@ def Find_GameStats(AppID:int):
     #     print(response.text)
 
 
-def FetchImage() -> Image:
+def FetchImage(Game,use_SteamGrid:bool) -> Image:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
     """Types possible are Grids, Logos, Icons.\n
     Returns a PIL"""
 
@@ -362,14 +365,16 @@ def FetchImage() -> Image:
         'styles':'official',
         'dimensions':'256',
     }
-    if False:
-        Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
+    if use_SteamGrid==True:
+        if False:
+            Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
+            requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
+        Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)
         requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
-    Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)
-    requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
 
-    print(Query.status_code)
-    url:str =  requrl[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny]
+        print(Query.status_code)
+        url:str =  requrl[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny, reportRedeclaration]
+    url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{Game["appid"]}/{Game["img_icon_url"]}.jpg"
     response = requests.get(url)
     img = PILImage.open(BytesIO(response.content))#.convert('L')
 
@@ -487,6 +492,7 @@ def GUI_FindSteamUser():
     except requests.exceptions.RequestException as e:
         print(f"   ❌ Fehler: {e}")
         print(response.text)
+    _=List_Owned_Client_Games(force_get=True)
     
 
 def PackageStats() -> dict[str, int | str | float]:
@@ -549,7 +555,7 @@ def maintain_aspect_ratio(event, aspect_ratio):  # pyright: ignore[reportUnknown
 
 
 IsConnected=Connect_Check()
-GamesList=List_Owned_Client_Games()
+GamesList=List_Owned_Client_Games(force_get=False)
 
 
 if Steam_running() == False:
@@ -614,7 +620,7 @@ GName=ttk.Label(DiagnoseField,text="xxxxxx")
 GName.pack()
 GName_v:str=""
 
-
+Logo_Icon_URL:str=""
 
 ttk.Label(DiagnoseField,text="\nPlaytime [h]:").pack()
 Playtime=ttk.Label(DiagnoseField,text="xxxxxx")
