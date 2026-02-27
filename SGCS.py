@@ -1,6 +1,4 @@
 #SGCS Steam Game Cartridge System
-
-
 from PIL.Image import Image
 from requests.models import Response
 
@@ -98,7 +96,7 @@ def List_Games() -> list[dict[str, int | str]]:
         print(response.text)
         return [{"appid":int(),"name":"","playtime_forever":int()}]
 
-
+#! Still not fully functional. with every Registry it Forces a new Call, possibilty to Save the GamesList-owner in the Json Block as well, would be cool!
 def List_Owned_Client_Games(force_get:bool)  -> list[dict[str, int | str]]:
     Games: list[dict[str, int | str]]
     try:
@@ -395,6 +393,8 @@ def GUI_FindSteamUser():
     #sets the USER_ID_Steam variable and Displays a connection status alongside the Nickname
     global USER_ID_Steam
     global USER_ID_Steam_Standard
+
+    global ComboValues
     Steam_URL=UserNameField.get()
     path = urlparse(Steam_URL).path.rstrip('/')  # Remove trailing slash if any
     # Path will be something like '/profiles/76561197960435530' or '/id/gabeloganewell'
@@ -493,8 +493,14 @@ def GUI_FindSteamUser():
     except requests.exceptions.RequestException as e:
         print(f"   ❌ Fehler: {e}")
         print(response.text)
-    _=List_Owned_Client_Games(force_get=True)
-    
+    tempList=List_Owned_Client_Games(force_get=True)
+    temp: list[str]=[]
+    for i in range (0,len(tempList)):  
+        name=tempList[i]["name"]
+        temp.append(str(name))
+    ComboValues=temp
+    NameField['values']=ComboValues 
+
 
 def PackageStats() -> dict[str, int | str | float]:
     global AppID_v
@@ -596,8 +602,9 @@ Status_User.pack()
 
 ttk.Label(FrameThing,text="\n").pack()
 ttk.Label(FrameThing,text="Game Name").pack()
-NameField=ttk.Entry(FrameThing)
+NameField=ttk.Combobox(FrameThing)
 NameField.pack()
+ComboValues=[]
 ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
 ttk.Label(FrameThing,text="\n").pack()
 ttk.Button(FrameThing, text="Send found Game-Stats",command=SendGameStats).pack()
