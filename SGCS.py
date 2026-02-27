@@ -214,7 +214,9 @@ def GUI_FindGameID() -> None:
             photo = ImageTk.PhotoImage(photo)
             _=GameIcon.configure(image=photo)
             GameIcon.image = photo   # pyright: ignore[reportAttributeAccessIssue]
-            Logo_Icon_URL=f"http://media.steampowered.com/steamcommunity/public/images/apps/{Data["appid"]}/{Data["img_icon_url"]}.jpg"
+            url=Data["img_icon_url"]
+            Logo_Icon_URL=f"http://media.steampowered.com/steamcommunity/public/images/apps/{AppID_v}/{url}.jpg"
+            # Logo_Icon_URL=""
 
 
 def Fetch_Install_State(AppID:int) -> bool:
@@ -358,15 +360,19 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
         'dimensions':'256',
     }
     if use_SteamGrid==True:
+        aID=AppID["text"]
         if False:
-            Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
+            Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
             requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
-        Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)
+        Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)
         requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
 
         print(Query.status_code)
         url:str =  requrl[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny, reportRedeclaration]
-    url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{Game["appid"]}/{Game["img_icon_url"]}.jpg"
+    else:
+        aID=Game["appid"]
+        iconURl=Game["img_icon_url"]
+        url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{aID}/{iconURl}.jpg"
     response = requests.get(url)
     img = PILImage.open(BytesIO(response.content))#.convert('L')
     if use_BlackWhite ==True:
@@ -508,7 +514,8 @@ def SendGameStats():
     try:
         with open(f'{GameStats["appid"]}.txt', 'w') as filehandle:
             json.dump(GameStats, filehandle) 
-            SendStatus["text"]=f"Success! Sent FileID {GameStats["appid"]}"
+            aID=GameStats["appid"]
+            SendStatus["text"]=f"Success! Sent FileID {aID}"
             return True
     except Exception as e: 
         SendStatus["text"]=f"Error! Encounterd {e}"
