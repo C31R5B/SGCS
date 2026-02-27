@@ -1,6 +1,7 @@
 #SGCS Steam Game Cartridge System
 
 
+from PIL.Image import Image
 from requests.models import Response
 
 import requests
@@ -32,7 +33,6 @@ USER_ID_Steam_Standard=key_data[5]
 USER_ID_Steam=USER_ID_Steam_Standard
 
 
-
 def Connect_Check() -> bool:
     try:
         _=requests.get(url="https://store.steampowered.com/",timeout=1)
@@ -41,9 +41,13 @@ def Connect_Check() -> bool:
     except requests.ConnectionError as e:
         print("Internetverbindung fehlgeschlagen", e)
         return False
+
+
 def Steam_running():
     tasks = subprocess.check_output("tasklist").decode(encoding="utf-8").lower()
     return "steam.exe" in tasks
+
+
 def Run_Game(GameID:int):
     os.startfile(f"steam://rungameid/{GameID}")
 
@@ -93,7 +97,6 @@ def List_Games() -> list[dict[str, int | str]]:
         print(f"   ❌ Fehler: {e}")
         print(response.text)
         return [{"appid":int(),"name":"","playtime_forever":int()}]
-    
 
 
 def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
@@ -157,7 +160,8 @@ def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
             print(f"   ❌ Fehler: {e}")
             print(response.text)
             return [{"appid":int(),"name":"","playtime_forever":int()}]
-    
+
+
 def List_Installed_Client_Games() -> set[int]:
     #Actually Returns a Set!
     with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
@@ -170,7 +174,7 @@ def List_Installed_Client_Games() -> set[int]:
         lib_content:str=str(GameID_Locations_List[i][0])
         List: list[int]=Regex.findall(lib_content)
         for data in List:  
-            GameID_set.add(data)
+            GameID_set.add(int(data))
     return GameID_set
 
 
@@ -202,6 +206,7 @@ def GUI_FindGameID() -> None:
             Installed_v=False
             Achievement_Rate_v=0
             _=Achievement_Rate.configure(text="N/A")
+            _=GameIcon.configure(image=steam_pic)
         else:
             _=AppID.configure(text=GameID)
             AppID_v=GameID
@@ -211,24 +216,29 @@ def GUI_FindGameID() -> None:
             Find_GameStats(GameID)
             Installed_v=Fetch_Install_State(GameID)
             _=Installed.configure(text=str(Installed_v))
-            
-        
+            photo=FetchImage()
+            photo = ImageTk.PhotoImage(photo)
+            _=GameIcon.configure(image=photo)
+            GameIcon.image = photo   # pyright: ignore[reportAttributeAccessIssue]
+
+
 def Fetch_Install_State(AppID:int) -> bool:
     Installed_GamesSet=List_Installed_Client_Games()
     if AppID in Installed_GamesSet:
         return True
     else:
         return False   
-        
+
+
 def Find_GameStats(AppID:int):
     global Achievement_Rate_v
-# Takes the AppID from the Currently "selected" Game
-#Not Called from GUI, only from other Functions
+    # Takes the AppID from the Currently "selected" Game
+    #Not Called from GUI, only from other Functions
 
 
-#! Damit kann man sowohl die Achievement Completion Rate als auch sowas wie Rarest Achievement fetchen, Man kriegt sogar n link für die Bilder der Achievements!
+    #! Damit kann man sowohl die Achievement Completion Rate als auch sowas wie Rarest Achievement fetchen, Man kriegt sogar n link für die Bilder der Achievements!
 
-#Global Achievements Percentages
+    #Global Achievements Percentages
 
     # url="https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/"
     # params = {
@@ -255,7 +265,7 @@ def Find_GameStats(AppID:int):
         
 
 
-#Game Stats and Achievements
+    #Game Stats and Achievements
 
 
     url="https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
@@ -271,7 +281,7 @@ def Find_GameStats(AppID:int):
         #print(response.headers)
         #print(response.text)
         if response.status_code==200:
-            GameAchievements=json.loads(response.text)  # pyright: ignore[reportAny]
+            GameAchievements=json.loads(response.text)  # pyright: ignore[reportAny, reportUnusedVariable]
             #print(response.text)
             with open('Achievements.txt', 'w') as filehandle:
                 json.dump(response.text, filehandle)   
@@ -284,7 +294,7 @@ def Find_GameStats(AppID:int):
         
         
         
-#User Achievements
+    #User Achievements
     url="https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/"
     params = {
         "key": API_KEY_Steam,
@@ -319,7 +329,7 @@ def Find_GameStats(AppID:int):
 
         
         
-#User Stats
+    #User Stats
 
     # url="https://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v2/"
     # params = {
@@ -339,27 +349,30 @@ def Find_GameStats(AppID:int):
     # except requests.exceptions.RequestException as e:
     #     print(f"   ❌ Fehler: {e}")
     #     print(response.text)
-    
 
 
-
-
-
-
-def FetchImage():
+def FetchImage() -> Image:
+    """Types possible are Grids, Logos, Icons.\n
+    Returns a PIL"""
 
     headers = {
             "Authorization": f"Bearer {API_KEY_SteamGrid}"
         }
     params = {
         'styles':'official',
-        }
-    IconQuery=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)
-    IconURL=re.findall((r'(?<="url":")[^"]*'),IconQuery.text)
-    print(IconQuery.status_code)
-    url:str =  IconURL[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny]
+        'dimensions':'256',
+    }
+    if False:
+        Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
+        requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
+    Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{AppID["text"]}",headers=headers,params=params)
+    requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
+
+    print(Query.status_code)
+    url:str =  requrl[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny]
     response = requests.get(url)
-    img = PILImage.open(BytesIO(response.content)).convert('L')
+    img = PILImage.open(BytesIO(response.content))#.convert('L')
+
     return img 
 
 
@@ -369,19 +382,13 @@ def FetchImage():
 #https://store.steampowered.com/app/2749770/Galaxy_Burger/
 #https://partner.steamgames.com/doc/webapi/ISteamApps#GetAppBuilds
 #https://steamapi.xpaw.me/#ISteamApps
-IsConnected=Connect_Check()
-GamesList=List_Owned_Client_Games()
-
-
-if Steam_running() == False:
-    path="C:/Program Files (x86)/Steam/Steam.exe"
-    os.startfile(path)
 
 #os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
 #https://steamcommunity.com/id/fazbear06/
 def GUI_FindSteamUser():
     #sets the USER_ID_Steam variable and Displays a connection status alongside the Nickname
     global USER_ID_Steam
+    global USER_ID_Steam_Standard
     Steam_URL=UserNameField.get()
     path = urlparse(Steam_URL).path.rstrip('/')  # Remove trailing slash if any
     # Path will be something like '/profiles/76561197960435530' or '/id/gabeloganewell'
@@ -417,6 +424,9 @@ def GUI_FindSteamUser():
 
         else:
             USER_ID_Steam=id
+    elif len(parts)==1 and parts[0]=='':
+        print("Falling Back to Standard ID!")
+        USER_ID_Steam=USER_ID_Steam_Standard
     else:
         PathType=""
         id=parts[0]
@@ -506,12 +516,62 @@ from tkinter import ttk
 from tkinter import Tk
 #from tkinter.filedialog import askopenfilename
 
+
+
+WIDTH, HEIGHT = 1000, 800  # Defines aspect ratio of window.
+
+def maintain_aspect_ratio(event, aspect_ratio):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+    """ Event handler to override root window resize events to maintain the
+        specified width to height aspect ratio.
+    """
+    if event.widget.master:  # Not root window?  # pyright: ignore[reportUnknownMemberType]
+        return  # Ignore.
+
+    # <Configure> events contain the widget's new width and height in pixels.
+    new_aspect_ratio = event.width / event.height  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+
+    # Decide which dimension controls.
+    if new_aspect_ratio > aspect_ratio:
+        # Use width as the controlling dimension.
+        desired_width = event.width  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+        desired_height = int(event.width / aspect_ratio)   # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    else:
+        # Use height as the controlling dimension.
+        desired_height = event.height  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+        desired_width = int(event.height * aspect_ratio)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+
+    # Override if necessary.
+    if event.width != desired_width or event.height != desired_height:  # pyright: ignore[ reportUnknownMemberType]
+        # Manually give it the proper dimensions.
+        event.widget.geometry(f'{desired_width}x{desired_height}') # pyright: ignore[ reportUnknownMemberType]
+        return "break"  # Block further processing of this event.
+
+
+
+IsConnected=Connect_Check()
+GamesList=List_Owned_Client_Games()
+
+
+if Steam_running() == False:
+    path="C:/Program Files (x86)/Steam/Steam.exe"
+    os.startfile(path)
+
 #print(Find_GameID("Portal",GamesLists))
 #print(Find_GameName(400,GamesLists))
 root = Tk()
 root.title("SGCS 0.1")
+
+img = PILImage.open("Steam.png")
+img=img.resize(size=[256,256])  # pyright: ignore[reportUnknownMemberType]
+steam_pic=ImageTk.PhotoImage(img)
+# root.geometry(f'{WIDTH}x{HEIGHT}')
+# _=root.bind('<Configure>', lambda event: maintain_aspect_ratio(event, WIDTH/HEIGHT))
+
+
 _=root.attributes('-fullscreen',False)  # pyright: ignore[reportUnknownMemberType]
-FrameThing=ttk.Frame(root,padding=30,relief="groove")
+base=ttk.Frame(root,padding=30,relief="groove")
+base.pack(fill="both")
+FrameThing=ttk.Frame(base,padding=30,relief="groove")
 FrameThing.pack(side="left")
 
 ttk.Button(FrameThing, text="Quit", command=root.destroy).pack()
@@ -537,8 +597,12 @@ ttk.Button(FrameThing, text="Send found Game-Stats",command=SendGameStats).pack(
 SendStatus=ttk.Label(FrameThing,text="\n")
 SendStatus.pack()
 
-DiagnoseField=ttk.Frame(root,padding=30,relief="groove")
+DiagnoseField=ttk.Frame(base,padding=30,relief="groove")
 DiagnoseField.pack(side="left")
+GameIcon=ttk.Label(DiagnoseField)
+GameIcon.pack()
+_=GameIcon.configure(image=steam_pic)
+
 ttk.Label(DiagnoseField,text="App-ID:").pack()
 AppID=ttk.Label(DiagnoseField,text="xxxxxx")
 AppID.pack()
