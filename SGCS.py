@@ -28,14 +28,19 @@ API_KEY_SteamGrid=key_data[3]
 USER_ID_Steam_Standard=key_data[5]
 USER_ID_Steam=USER_ID_Steam_Standard
 
+def Console_Log(string:str):
+    """ Prints to the Console with the Unix Timestamp in Front for better Readability"""
+
+    timeUsed=int(round(time.time(),0))
+    print(f'{timeUsed}: {string}')
 
 def Connect_Check() -> bool:
     try:
         _=requests.get(url="https://store.steampowered.com/",timeout=1)
-        print("Internetverbindung erfolgreich!")
+        Console_Log("Internetverbindung erfolgreich!")
         return True         
     except requests.ConnectionError as e:
-        print("Internetverbindung fehlgeschlagen", e)
+        Console_Log(f"Internetverbindung fehlgeschlagen: {e}")
         return False
 
 
@@ -50,8 +55,8 @@ def Run_Game(GameID:int):
 def Launch_Game() -> None:
     global AppID_v
     GameID: int=int(AppID_v)
-    Register_Changes(appid=GameID)
     Run_Game(GameID)
+    Register_Changes(appid=GameID)
 
 def List_Games() -> list[dict[str, int | str]]:
     last_appid=0 
@@ -67,7 +72,7 @@ def List_Games() -> list[dict[str, int | str]]:
         "max_results": max_results,    # Maximal 50.000 pro Seite
         # "last_appid": last_appid       # Startpunkt für die nächste Seite
     }
-    print(f"🔄 Rufe Seite ab mit last_appid = {last_appid}...")
+    Console_Log(f"🔄 Rufe Seite ab mit last_appid = {last_appid}...")
     response = requests.get(url, params=params)
     try:
         response.raise_for_status()
@@ -75,9 +80,9 @@ def List_Games() -> list[dict[str, int | str]]:
         
         # Die Struktur der Antwort: Die Apps sind in 'response' -> 'apps'
         apps = data.get('response', {}).get('apps', [])  # pyright: ignore[reportAny]
-        print(f"   ✅ {len(apps)} Apps auf dieser Seite erhalten.")  # pyright: ignore[reportAny]
-        #print(response.headers)
-        #print(response.text)
+        Console_Log(f"   ✅ {len(apps)} Apps auf dieser Seite erhalten.")  # pyright: ignore[reportAny]
+        #Console_Log(response.headers)
+        #Console_Log(response.text)
         if response.status_code==200:
 
             Resp=json.loads(response.text)  # pyright: ignore[reportAny]
@@ -91,8 +96,8 @@ def List_Games() -> list[dict[str, int | str]]:
             return [{"appid":int(),"name":"","playtime_forever":int()}]
         
     except requests.exceptions.RequestException as e:
-        print(f"   ❌ Fehler: {e}")
-        print(response.text)
+        Console_Log(f"   ❌ Fehler: {e}")
+        Console_Log(response.text)
         return [{"appid":int(),"name":"","playtime_forever":int()}]
 
 #! Still not fully functional. with every Registry it Forces a new Call, possibilty to Save the GamesList-owner in the Json Block as well, would be cool!
@@ -102,12 +107,14 @@ def List_Owned_Client_Games(force_get:bool)  -> list[dict[str, int | str]]:
         if force_get ==False:
             with open("Games.txt") as f:
                     Resp = f.read()
+            Console_Log("Read Local Cache!")
         Resp=json.loads(Resp)  # pyright: ignore[reportAny, reportPossiblyUnboundVariable]
         Games=Resp["response"]["games"]   # pyright: ignore[reportAny]
 
         return Games
     except Exception as e:
-            
+        Console_Log("Local Cache failed or force-exited!")
+        Console_Log("Fetching from Steam!")
         
         url="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
         
@@ -147,8 +154,8 @@ def List_Owned_Client_Games(force_get:bool)  -> list[dict[str, int | str]]:
                 return[{"appid":int(),"name":"","playtime_forever":int()}]
 
         except requests.exceptions.RequestException as e:
-            print(f"   ❌ Fehler: {e}")
-            print(response.text)
+            Console_Log(f"   ❌ Fehler: {e}")
+            Console_Log(response.text)
             return [{"appid":int(),"name":"","playtime_forever":int()}]
 
 
@@ -246,8 +253,8 @@ def Find_GameStats(AppID:int):
     #     #print(response.text)
         
     # except requests.exceptions.RequestException as e:
-    #     print(f"   ❌ Fehler: {e}")
-    #     print(response.text)
+    #     Console_Log(f"   ❌ Fehler: {e}")
+    #     Console_Log(response.text)
     
 
     # #print(response.headers)
@@ -282,8 +289,8 @@ def Find_GameStats(AppID:int):
     #         with open('Achievements.txt', 'w') as filehandle:
     #             json.dump(response.text, filehandle)   
     # except requests.exceptions.RequestException as e:
-    #     print(f"   ❌ Fehler: {e}")
-    #     print(response.text)
+    #     Console_Log(f"   ❌ Fehler: {e}")
+    #     Console_Log(response.text)
     
 
 
@@ -300,12 +307,8 @@ def Find_GameStats(AppID:int):
     response = requests.get(url, params=params)
     try:
         response.raise_for_status()
-        #print(response.text)
-        #print(response.headers)
-        #print(response.text)
         if response.status_code==200:
             UserAchievements=json.loads(response.text)# pyright: ignore[reportAny]
-            # print(response.text)
             Achievement_List=UserAchievements["playerstats"]["achievements"]# pyright: ignore[reportAny]
             Achievement_Nr=len(Achievement_List)# pyright: ignore[reportAny]
             Achieved_Nr=0
@@ -317,8 +320,8 @@ def Find_GameStats(AppID:int):
             Achievement_Rate_v=round(Achieved_Nr/Achievement_Nr*100,2)
             _=Achievement_Rate.configure(text=str(Achievement_Rate_v)+"%")
     except requests.exceptions.RequestException as e:
-        print(f"   ❌ Fehler: {e}")
-        print(response.text)
+        Console_Log(f"   ❌ Fehler: {e}")
+        Console_Log(response.text)
         _=Achievement_Rate.configure(text="Not Public!")
     
 
@@ -343,8 +346,8 @@ def Find_GameStats(AppID:int):
         #     UserStats=json.loads(response.text)
         #     print(response.text)
     # except requests.exceptions.RequestException as e:
-    #     print(f"   ❌ Fehler: {e}")
-    #     print(response.text)
+    #     Console_Log(f"   ❌ Fehler: {e}")
+    #     Console_Log(response.text)
 
 
 def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
@@ -399,7 +402,7 @@ def GUI_FindSteamUser():
     if len(parts)>3:
         _=Status_User.configure(text="Unable to resolve from Input, Check Input!")
         return
-    print(path)
+    #print(path)
     if len(parts)>1:
         PathType=parts[1]
         id=parts[2]
@@ -413,22 +416,19 @@ def GUI_FindSteamUser():
             response = requests.get(url, params=params)
             try:
                 response.raise_for_status()
-                #print(response.text)
-                #print(response.headers)
-                #print(response.text)
+
                 if response.status_code==200:
                     UserID=json.loads(response.text)  # pyright: ignore[reportAny]
                     USER_ID_Steam=UserID["response"]["steamid"]  # pyright: ignore[reportAny]
-                    print(response.text)
             except requests.exceptions.RequestException as e:
-                print(f"   ❌ Fehler: {e}")
-                print(response.text)
+                Console_Log(f"   ❌ Fehler: {e}")
+                Console_Log(response.text)
             
 
         else:
             USER_ID_Steam=id
     elif len(parts)==1 and parts[0]=='':
-        print("Falling Back to Standard ID!")
+        Console_Log("Falling Back to Standard ID!")
         USER_ID_Steam=USER_ID_Steam_Standard
     else:
         PathType=""
@@ -445,18 +445,13 @@ def GUI_FindSteamUser():
             response = requests.get(url, params=params)
             try:
                 response.raise_for_status()
-                #print(response.text)
-                            
-                #print(response.headers)
-                #print(response.text)
                 if response.status_code==200:
                     UserID=json.loads(response.text)  # pyright: ignore[reportAny]
                     USER_ID_Steam=UserID["response"]["steamid"]  # pyright: ignore[reportAny]
-                    print(response.text)
                     
             except requests.exceptions.RequestException as e:
-                print(f"   ❌ Fehler: {e}")
-                print(response.text)
+                Console_Log(f"   ❌ Fehler: {e}")
+                Console_Log(response.text)
     url="https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/"
     params = {
         "key": API_KEY_Steam,
@@ -465,15 +460,12 @@ def GUI_FindSteamUser():
     response = requests.get(url, params=params)
     try:
         response.raise_for_status()
-        #print(response.text)
-            #print(response.headers)
-        #print(response.text)
         if response.status_code==200:
             UserInfo=json.loads(response.text)# pyright: ignore[reportAny]
             Nickname=UserInfo["response"]["players"][0]["personaname"]# pyright: ignore[reportAny]
             ProfileURL=UserInfo["response"]["players"][0]["profileurl"]# pyright: ignore[reportAny]
             ProfileAvatarURL=UserInfo["response"]["players"][0]["avatarfull"]# pyright: ignore[reportAny]
-            print(response.text)
+            #Console_Log(response.text)
         else:
             Nickname=""
             ProfileURL=""
@@ -488,8 +480,8 @@ def GUI_FindSteamUser():
         _=Picture.configure(image=photo)
         Picture.image = photo   # pyright: ignore[reportAttributeAccessIssue]
     except requests.exceptions.RequestException as e:
-        print(f"   ❌ Fehler: {e}")
-        print(response.text)
+        Console_Log(f"   ❌ Fehler: {e}")
+        Console_Log(response.text)
     tempList=List_Owned_Client_Games(force_get=True)
     temp: list[str]=[]
     for i in range (0,len(tempList)):  
@@ -535,14 +527,14 @@ def Get_acf(appid:int) -> str:
         try:
             with open(f"{Locations[i]}/steamapps/appmanifest_{appid}.acf") as f:
                 acf = f.read()
-                #print(f"Found under Location: {Locations[i]}/steamapps/appmanifest_{appid}.acf")
+                #Console_Log(f"Found under Location: {Locations[i]}/steamapps/appmanifest_{appid}.acf")
                 return acf
         except FileNotFoundError:
-            #print(f"not Found under Location: {Locations[i]}/steamapps/")
-            #print("Searching Next Location")
+            #Console_Log(f"not Found under Location: {Locations[i]}/steamapps/")
+            #Console_Log("Searching Next Location")
             continue
         except Exception as e:
-            print(e)
+            Console_Log(f"{e}")
             break
     return acf
 
@@ -564,6 +556,7 @@ def Register_Changes(appid:int):
     Old_time=Get_LastPlayed(appid=appid)  
     New_time=Old_time 
     Change:bool=False
+    has_started=False
     has_launched=False
     has_closed=False
     Launch_Date=0
@@ -574,21 +567,25 @@ def Register_Changes(appid:int):
     while is_running:
         try:
             New_time=Get_LastPlayed(appid=appid) 
-            timeUsed=int(round(time.time(),0))
             if New_time!=Old_time:
                 Change=True
-                if has_launched ==False:
-                    has_launched =True
-                    Launch_Date=New_time
+                if has_started==False:
+                    has_started=True
                 else:
-                    has_closed=True
-                    Close_Date=New_time
-                    print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
-                    print("Second Event Registered, Closing!")
-                    break
+                    if has_launched ==False:
+                        has_launched =True
+                        Launch_Date=New_time
+                    else:
+                        has_closed=True
+                        Close_Date=New_time
+                        #print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
+                        Console_Log(f"{New_time}  | Changed:  {Change}")
+                        print("Third Event Registered, Closing!")
+                        break
             else:
                 Change=False
-            print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
+            #print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
+            Console_Log(f"{New_time}  | Changed:  {Change}")
             Old_time=New_time 
             time.sleep(1)
         except KeyboardInterrupt:
@@ -599,7 +596,7 @@ def Register_Changes(appid:int):
         Playtime_minutes: float=round(Playtime_seconds/60,1)
         print(f'Summary: Game "{Get_Name_from_Acf(appid=appid)}" was played for {Playtime_minutes} Minutes')
     else:
-        print("No Activity detected")
+        Console_Log("No Activity detected")
 
 
 
