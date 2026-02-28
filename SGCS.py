@@ -1,4 +1,5 @@
 #SGCS Steam Game Cartridge System
+import tkinter
 from PIL.Image import Image
 import requests
 import os
@@ -69,6 +70,8 @@ def Launch_Game() -> None:
     SendStats_Button["text"]="Locked!"
     Launch_Button["state"]=DISABLED
     Launch_Button["text"]="Locked!"
+    RefreshLibrary_Button["state"]=DISABLED
+    RefreshLibrary_Button["text"]="Locked!"
     GUI_antifreeze(GameID)
 
 
@@ -79,6 +82,7 @@ def Refresh_GUI_OnSessionEnd(appid:int):
     Last_Played_v=datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid)))
     Last_Played["text"]=str(datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid))))
     Console_Log(str(SendGameStats()))
+    root.deiconify()
     _ = root.attributes('-topmost', True)  # pyright: ignore[reportUnknownMemberType]
     _ = root.attributes('-topmost', False)  # pyright: ignore[reportUnknownMemberType]
     FrameThing.grid()
@@ -92,6 +96,8 @@ def Refresh_GUI_OnSessionEnd(appid:int):
     SendStats_Button["text"]="Send found Game-Stats"
     Launch_Button["state"]=NORMAL
     Launch_Button["text"]="Launch Game"
+    RefreshLibrary_Button["state"]=NORMAL
+    RefreshLibrary_Button["text"]="Refresh your Library"
 
 def GUI_antifreeze(GameID:int):
     Monitor=threading.Thread(target=Refresh_GUI_OnSessionEnd, args=(GameID,),daemon=True)
@@ -143,10 +149,12 @@ def List_Games() -> list[dict[str, int | str]]:
         Console_Log(response.text)
         return [{"appid":int(),"name":"","playtime_forever":int()}]
 
-#! Still not fully functional. with every Registry it Forces a new Call, possibilty to Save the GamesList-owner in the Json Block as well, would be cool!
-def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
+def List_Owned_Client_Games(force_refresh:bool)  -> list[dict[str, int | str]]:
     Games: list[dict[str, int | str]]
     try:
+        if force_refresh:
+            Console_Log("Forcing Refresh of Library!")
+            raise Exception
         with open("Games.txt") as f:
                 Resp = f.read()
         Console_Log("Read Local Cache!")
@@ -158,6 +166,14 @@ def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
         else:
             Console_Log("Owner is a Match to Library!")
             Games=Resp["response"]["games"]   # pyright: ignore[reportAny]
+        LastUpdate=Resp["LastFetched"]  # pyright: ignore[reportAny]
+        FetchIntervall=259200 #3-Days
+        Console_Log(f"Last Check-In with Steam has been {round((int(round(time.time(),0))-LastUpdate)/(3600*24),2)} Days ago.")  # pyright: ignore[reportAny]
+        if int(round(time.time(),0))-LastUpdate>=FetchIntervall:
+            Console_Log(f"Libary hasn't been checked in more than {round(FetchIntervall/(3600*24),2)} Days, refetching!")
+            raise Exception
+        else:
+            Console_Log("Library is up to Date!")
 
         return Games
     except Exception as e:
@@ -195,8 +211,10 @@ def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
                 Resp=json.loads(response.text)  # pyright: ignore[reportAny]
                 Games=Resp["response"]["games"]  # pyright: ignore[reportAny]
                 LibraryOwner=({"LibraryOwner":USER_ID_Steam})
+                LastFetched={"LastFetched":int(round(time.time(),0))}
+                
                 with open('Games.txt', 'w') as filehandle:
-                    json.dump({**Resp,**LibraryOwner}, filehandle)    
+                    json.dump({**Resp,**LibraryOwner,**LastFetched}, filehandle)    
                 return Games
             else:
                 return[{"appid":int(),"name":"","playtime_forever":int()}]
@@ -235,7 +253,7 @@ def GUI_FindGameID() -> None:
         global Logo_Icon_URL
         global Last_Played
         global Last_Played_v
-        GamesList=List_Owned_Client_Games()
+        GamesList=List_Owned_Client_Games(force_refresh=False)
         Name=NameField.get()
         GameID:int=0
         Data=GamesList[0]
@@ -443,13 +461,26 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
 #https://steamapi.xpaw.me/#ISteamApps
 
 #os.startfile(f"C:\Program Files (x86)\Steam\Steam.exe")
+LogOnLastUser:bool=True
+
 def GUI_FindSteamUser():
     #sets the USER_ID_Steam variable and Displays a connection status alongside the Nickname
     global USER_ID_Steam
     global USER_ID_Steam_Standard
-
+    global LogOnLastUser
     global ComboValues
-    Steam_URL=UserNameField.get()
+    if LogOnLastUser:
+        try:
+            with open("Games.txt") as f:
+                Resp = f.read()
+            Resp=json.loads(Resp)  # pyright: ignore[reportAny]
+            
+            Steam_URL=str(Resp["LibraryOwner"])  # pyright: ignore[reportAny]
+        except Exception:
+            Steam_URL=UserNameField.get()
+        LogOnLastUser=False
+    else:
+        Steam_URL=UserNameField.get()
     path = urlparse(Steam_URL).path.rstrip('/')  # Remove trailing slash if any
     # Path will be something like '/profiles/76561197960435530' or '/id/gabeloganewell'
     parts = path.split('/')
@@ -487,7 +518,7 @@ def GUI_FindSteamUser():
     else:
         PathType=""
         id=parts[0]
-        if len(id)==17 and id[0:2]=="765":
+        if len(id)==17 and id[0:3]=="765":
             USER_ID_Steam=id
         else:
             url="https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/"
@@ -517,14 +548,14 @@ def GUI_FindSteamUser():
         if response.status_code==200:
             UserInfo=json.loads(response.text)# pyright: ignore[reportAny]
             Nickname=UserInfo["response"]["players"][0]["personaname"]# pyright: ignore[reportAny]
-            ProfileURL=UserInfo["response"]["players"][0]["profileurl"]# pyright: ignore[reportAny]
+            ProfileURL=UserInfo["response"]["players"][0]["profileurl"]# pyright: ignore[reportAny, reportUnusedVariable]
             ProfileAvatarURL=UserInfo["response"]["players"][0]["avatarfull"]# pyright: ignore[reportAny]
             #Console_Log(response.text)
         else:
             Nickname=""
-            ProfileURL=""
+            ProfileURL=""  # pyright: ignore[reportUnusedVariable]
             ProfileAvatarURL=""
-        Status="User "+ str(Nickname)+" registered under URL:\n"+str(ProfileURL)
+        Status="User "+ str(Nickname)+" registered.     Not you?"
         _=Status_User.configure(text=Status)    
         with urllib.request.urlopen(ProfileAvatarURL) as u:# pyright: ignore[reportAny]
             raw_data = u.read()  # pyright: ignore[reportAny]
@@ -536,7 +567,7 @@ def GUI_FindSteamUser():
     except requests.exceptions.RequestException as e:
         Console_Log(f"   ❌ Fehler: {e}")
         Console_Log(response.text)
-    tempList=List_Owned_Client_Games()
+    tempList=List_Owned_Client_Games(force_refresh=False)
     temp: list[str]=[]
     for i in range (0,len(tempList)):  
         name=tempList[i]["name"]
@@ -549,12 +580,10 @@ def RefreshPlaytime(Playtime_add:int):
     global AppID_v
     Playtime_v+=Playtime_add
     Playtime["text"]=round(Playtime_v/60,1)
-
-    #! Fix This Shit, The Local Chache needs to be updated too
     with open("Games.txt") as f:
         Resp = f.read()
     Resp=json.loads(Resp)  # pyright: ignore[reportAny]
-    Games: list[dict[str, int | str]]=Resp["response"]["games"]
+    Games: list[dict[str, int | str]]=Resp["response"]["games"]  # pyright: ignore[reportAny]
     for i in range(0,len(Games)):
         if Games[i]["appid"]==AppID_v:
             Games[i]["playtime_forever"]=Playtime_v
@@ -642,12 +671,13 @@ def Register_Changes(appid:int):
     print("Starting Montoring")
     print(f'Game:   "{Get_Name_from_Acf(appid=appid)}"')
     print("----------------------------------------")
+    print("Waiting for Launch")
     while is_running:
         try:
             New_time=Get_LastPlayed(appid=appid) 
             if New_time!=Old_time:
                 Change=True
-                if has_started==False:
+                if has_started==False:  # pyright: ignore[reportUnnecessaryComparison]
                     has_started=True
                 else:
                     if has_launched ==False:
@@ -681,6 +711,11 @@ def Register_Changes(appid:int):
     return Playtime_minutes_for_Package
 
 
+def GUI_RefreshLibrary():
+    global GamesList
+    GamesList=List_Owned_Client_Games(force_refresh=True)
+    Console_Log("Sucess! Refreshed your Library!")
+    Status_Library["text"]="Sucess! Refreshed your Library!"
 
 
 
@@ -726,10 +761,31 @@ def maintain_aspect_ratio(event, aspect_ratio):  # pyright: ignore[reportUnknown
         event.widget.geometry(f'{desired_width}x{desired_height}') # pyright: ignore[ reportUnknownMemberType]
         return "break"  # Block further processing of this event.
 
+def Refresh_Listed_Games():
+    Console_Log("Starting Refresh")
+    global ComboValues
+    Games_List: list[dict[str, int | str]]=List_Owned_Client_Games(force_refresh=False)
+    temp_List: list[dict[str, int | str]]=[]
+    if Install_Checkvar.get()==True:
+        Console_Log("Installed Should be Listed!")
+        Installed_Set=List_Installed_Client_Games()
+        for i in range(0,len(Games_List)):
+            if Games_List[i]["appid"] in Installed_Set:
+                temp_List.append(Games_List[i])
+    else:
+        Console_Log("Installed Should NOT be Listed!")
+        temp_List=Games_List       
+    temp: list[str]=[]
+    for i in range (0,len(temp_List)):  
+        name=temp_List[i]["name"]
+        temp.append(str(name))
+    ComboValues=sorted(temp)
+    NameField['values']=ComboValues 
+    Console_Log("Refreshed Selection List")
 
-
+    
 IsConnected=Connect_Check()
-GamesList=List_Owned_Client_Games()
+#GamesList=List_Owned_Client_Games(force_refresh=False)
 
 
 if Steam_running() == False:
@@ -757,19 +813,26 @@ Quit_Button=ttk.Button(FrameThing, text="Quit", command=root.destroy)
 Quit_Button.pack()
 Picture=ttk.Label(FrameThing,padding=10)
 Picture.pack()
-ttk.Label(FrameThing,text="\n").pack()
 
-ttk.Label(FrameThing,text="Input your Steam URL, SteamID or Custom ID here").pack()
+Status_User=ttk.Label(FrameThing,text="\n")
+Status_User.pack()
+LogInInfo=ttk.Label(FrameThing,text="Input your Steam URL, SteamID or Custom ID here:")
+LogInInfo.pack()
 UserNameField=ttk.Entry(FrameThing)
 UserNameField.pack()
 FindUser_Button=ttk.Button(FrameThing, text="Find Steam Profile",command=GUI_FindSteamUser)
 FindUser_Button.pack()
-Status_User=ttk.Label(FrameThing,text="\n")
-Status_User.pack()
-
-
+ttk.Label(FrameThing,text="\n").pack()
+RefreshLibrary_Button=ttk.Button(FrameThing, text="Refresh your Library",command=GUI_RefreshLibrary)
+RefreshLibrary_Button.pack()
+Status_Library=ttk.Label(FrameThing,text="\n")
+Status_Library.pack()
 ttk.Label(FrameThing,text="\n").pack()
 ttk.Label(FrameThing,text="Game Name").pack()
+
+Install_Checkvar =tkinter.BooleanVar(value=False)
+Install_Check=ttk.Checkbutton(FrameThing,text="Only List Installed Games",variable=Install_Checkvar,command=Refresh_Listed_Games)  
+Install_Check.pack()
 NameField=ttk.Combobox(FrameThing)
 NameField.pack()
 ComboValues=[]
@@ -827,8 +890,9 @@ Launch_Button.pack()
 Game_Status=ttk.Label(DiagnoseField,text="\n")
 Game_Status.pack()
 
-root.mainloop()
+GUI_FindSteamUser()
 
+root.mainloop()
 
 
 #New API:https://partner.steamgames.com/doc/webapi/IStoreService#GetAppList
