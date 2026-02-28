@@ -10,7 +10,8 @@ import urllib.request
 from urllib.parse import urlparse
 from io import BytesIO
 import time
-
+from datetime import datetime
+import threading
 from PIL import Image as PILImage
 from PIL import ImageTk
 try:
@@ -53,10 +54,50 @@ def Run_Game(GameID:int):
     os.startfile(f"steam://rungameid/{GameID}")
 
 def Launch_Game() -> None:
+
     global AppID_v
     GameID: int=int(AppID_v)
     Run_Game(GameID)
-    Register_Changes(appid=GameID)
+    Game_Status["text"]=f'Game "{Get_Name_from_Acf(appid=GameID)}" is running!\nControls are locked until Game is closed!'
+    Quit_Button["state"]=DISABLED
+    Quit_Button["text"]="Locked!"
+    FindUser_Button["state"]=DISABLED
+    FindUser_Button["text"]="Locked!"
+    LoadGame_Button["state"]=DISABLED
+    LoadGame_Button["text"]="Locked!"
+    SendStats_Button["state"]=DISABLED
+    SendStats_Button["text"]="Locked!"
+    Launch_Button["state"]=DISABLED
+    Launch_Button["text"]="Locked!"
+    GUI_antifreeze(GameID)
+
+
+def Refresh_GUI_OnSessionEnd(appid:int):
+    global Last_Played_v
+    Playtime_Session=Register_Changes(appid=appid)
+    RefreshPlaytime(Playtime_add=Playtime_Session)
+    Last_Played_v=datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid)))
+    Last_Played["text"]=str(datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid))))
+    Console_Log(str(SendGameStats()))
+    FrameThing.grid()
+    Quit_Button["state"]=NORMAL
+    Quit_Button["text"]="Quit"
+    FindUser_Button["state"]=NORMAL
+    FindUser_Button["text"]="Find Steam Profile"
+    LoadGame_Button["state"]=NORMAL
+    LoadGame_Button["text"]="Load Game"
+    SendStats_Button["state"]=NORMAL
+    SendStats_Button["text"]="Send found Game-Stats"
+    Launch_Button["state"]=NORMAL
+    Launch_Button["text"]="Launch Game"
+
+def GUI_antifreeze(GameID:int):
+    Monitor=threading.Thread(target=Refresh_GUI_OnSessionEnd, args=(GameID,))
+    if Monitor.is_alive():
+        Console_Log("Monitor already running!")
+    else:
+        Monitor.start()
+
 
 def List_Games() -> list[dict[str, int | str]]:
     last_appid=0 
@@ -101,15 +142,20 @@ def List_Games() -> list[dict[str, int | str]]:
         return [{"appid":int(),"name":"","playtime_forever":int()}]
 
 #! Still not fully functional. with every Registry it Forces a new Call, possibilty to Save the GamesList-owner in the Json Block as well, would be cool!
-def List_Owned_Client_Games(force_get:bool)  -> list[dict[str, int | str]]:
+def List_Owned_Client_Games()  -> list[dict[str, int | str]]:
     Games: list[dict[str, int | str]]
     try:
-        if force_get ==False:
-            with open("Games.txt") as f:
-                    Resp = f.read()
-            Console_Log("Read Local Cache!")
-        Resp=json.loads(Resp)  # pyright: ignore[reportAny, reportPossiblyUnboundVariable]
-        Games=Resp["response"]["games"]   # pyright: ignore[reportAny]
+        with open("Games.txt") as f:
+                Resp = f.read()
+        Console_Log("Read Local Cache!")
+        Resp=json.loads(Resp)  # pyright: ignore[reportAny]
+        Owner=Resp["LibraryOwner"]  # pyright: ignore[reportAny]
+        if str(Owner)!=str(USER_ID_Steam):  # pyright: ignore[reportAny]
+            Console_Log("Owner dosent Match Library, refetching!")
+            raise Exception
+        else:
+            Console_Log("Owner is a Match to Library!")
+            Games=Resp["response"]["games"]   # pyright: ignore[reportAny]
 
         return Games
     except Exception as e:
@@ -146,9 +192,9 @@ def List_Owned_Client_Games(force_get:bool)  -> list[dict[str, int | str]]:
 
                 Resp=json.loads(response.text)  # pyright: ignore[reportAny]
                 Games=Resp["response"]["games"]  # pyright: ignore[reportAny]
-                
+                LibraryOwner=({"LibraryOwner":USER_ID_Steam})
                 with open('Games.txt', 'w') as filehandle:
-                    json.dump(Resp, filehandle)    
+                    json.dump({**Resp,**LibraryOwner}, filehandle)    
                 return Games
             else:
                 return[{"appid":int(),"name":"","playtime_forever":int()}]
@@ -185,7 +231,9 @@ def GUI_FindGameID() -> None:
         global Installed_v
         global Achievement_Rate_v
         global Logo_Icon_URL
-        GamesList=List_Owned_Client_Games(force_get=False)
+        global Last_Played
+        global Last_Played_v
+        GamesList=List_Owned_Client_Games()
         Name=NameField.get()
         GameID:int=0
         Data=GamesList[0]
@@ -207,6 +255,8 @@ def GUI_FindGameID() -> None:
             _=Achievement_Rate.configure(text="N/A")
             _=GameIcon.configure(image=steam_pic)
             Logo_Icon_URL=""
+            Last_Played_v=datetime.fromtimestamp(timestamp=0)
+            Last_Played["text"]=str(datetime.fromtimestamp(timestamp=0))
         else:
             _=AppID.configure(text=GameID)
             AppID_v=GameID
@@ -223,6 +273,8 @@ def GUI_FindGameID() -> None:
             url=Data["img_icon_url"]
             Logo_Icon_URL=f"http://media.steampowered.com/steamcommunity/public/images/apps/{AppID_v}/{url}.jpg"
             # Logo_Icon_URL=""
+            Last_Played_v=datetime.fromtimestamp(timestamp=int(Data["rtime_last_played"]))
+            Last_Played["text"]=str(datetime.fromtimestamp(timestamp=int(Data["rtime_last_played"])))
 
 
 def Fetch_Install_State(AppID:int) -> bool:
@@ -482,7 +534,7 @@ def GUI_FindSteamUser():
     except requests.exceptions.RequestException as e:
         Console_Log(f"   ❌ Fehler: {e}")
         Console_Log(response.text)
-    tempList=List_Owned_Client_Games(force_get=True)
+    tempList=List_Owned_Client_Games()
     temp: list[str]=[]
     for i in range (0,len(tempList)):  
         name=tempList[i]["name"]
@@ -490,6 +542,10 @@ def GUI_FindSteamUser():
     ComboValues=sorted(temp)
     NameField['values']=ComboValues 
 
+def RefreshPlaytime(Playtime_add:int):
+    global Playtime_v
+    Playtime_v+=Playtime_add
+    Playtime["text"]=round(Playtime_v/60,1)
 
 def PackageStats() -> dict[str, int | str | float]:
     global AppID_v
@@ -552,6 +608,9 @@ def Get_Name_from_Acf(appid:int):
 
 
 def Register_Changes(appid:int):
+    """ Listens to the appmanifest_{appid}.acf file and Checks the LastPlayed Property. \n 
+    With Starting, Launching and Closing the Game 3 Changes are registered, after the last one. a Sesstion Playtime in Full Minutes is returned."""
+
     is_running=True
     Old_time=Get_LastPlayed(appid=appid)  
     New_time=Old_time 
@@ -594,9 +653,13 @@ def Register_Changes(appid:int):
     if has_closed ==True:
         Playtime_seconds: int=Close_Date-Launch_Date
         Playtime_minutes: float=round(Playtime_seconds/60,1)
+        Playtime_minutes_for_Package:int=int(round(Playtime_minutes,0))
         print(f'Summary: Game "{Get_Name_from_Acf(appid=appid)}" was played for {Playtime_minutes} Minutes')
+        Game_Status["text"]=f'Summary: Game "{Get_Name_from_Acf(appid=appid)}" \nwas played for {Playtime_minutes} Minutes'
     else:
         Console_Log("No Activity detected")
+        Playtime_minutes_for_Package=0
+    return Playtime_minutes_for_Package
 
 
 
@@ -610,13 +673,13 @@ def Register_Changes(appid:int):
 
 
 
-from tkinter import ttk
+from tkinter import DISABLED, NORMAL, ttk
 from tkinter import Tk
 #from tkinter.filedialog import askopenfilename
 
 
 
-WIDTH, HEIGHT = 1000, 800  # Defines aspect ratio of window.
+WIDTH, HEIGHT = 600, 800  # Defines aspect ratio of window.
 
 def maintain_aspect_ratio(event, aspect_ratio):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
     """ Event handler to override root window resize events to maintain the
@@ -647,7 +710,7 @@ def maintain_aspect_ratio(event, aspect_ratio):  # pyright: ignore[reportUnknown
 
 
 IsConnected=Connect_Check()
-GamesList=List_Owned_Client_Games(force_get=False)
+GamesList=List_Owned_Client_Games()
 
 
 if Steam_running() == False:
@@ -660,19 +723,19 @@ root = Tk()
 root.title("SGCS 0.1")
 
 img = PILImage.open("Steam.png")
-img=img.resize(size=[256,256])  # pyright: ignore[reportUnknownMemberType]
+img=img.resize(size=[64,64])  # pyright: ignore[reportUnknownMemberType]
 steam_pic=ImageTk.PhotoImage(img)
-# root.geometry(f'{WIDTH}x{HEIGHT}')
+#root.geometry(f'{WIDTH}x{HEIGHT}')
+root.resizable(width=False,height=False)
 # _=root.bind('<Configure>', lambda event: maintain_aspect_ratio(event, WIDTH/HEIGHT))
 
 
 _=root.attributes('-fullscreen',False)  # pyright: ignore[reportUnknownMemberType]
-base=ttk.Frame(root,padding=30,relief="groove")
-base.pack(fill="both")
-FrameThing=ttk.Frame(base,padding=30,relief="groove")
-FrameThing.pack(side="left")
+FrameThing=ttk.Frame(root,padding=30,relief="groove")
+FrameThing.grid(column=0,row=0)
 
-ttk.Button(FrameThing, text="Quit", command=root.destroy).pack()
+Quit_Button=ttk.Button(FrameThing, text="Quit", command=root.destroy)
+Quit_Button.pack()
 Picture=ttk.Label(FrameThing,padding=10)
 Picture.pack()
 ttk.Label(FrameThing,text="\n").pack()
@@ -680,7 +743,8 @@ ttk.Label(FrameThing,text="\n").pack()
 ttk.Label(FrameThing,text="Input your Steam URL, SteamID or Custom ID here").pack()
 UserNameField=ttk.Entry(FrameThing)
 UserNameField.pack()
-ttk.Button(FrameThing, text="Find Steam Profile",command=GUI_FindSteamUser).pack()
+FindUser_Button=ttk.Button(FrameThing, text="Find Steam Profile",command=GUI_FindSteamUser)
+FindUser_Button.pack()
 Status_User=ttk.Label(FrameThing,text="\n")
 Status_User.pack()
 
@@ -690,14 +754,16 @@ ttk.Label(FrameThing,text="Game Name").pack()
 NameField=ttk.Combobox(FrameThing)
 NameField.pack()
 ComboValues=[]
-ttk.Button(FrameThing, text="Find OWNED Game",command=GUI_FindGameID).pack()
+LoadGame_Button=ttk.Button(FrameThing, text="Load Game",command=GUI_FindGameID)
+LoadGame_Button.pack()
 ttk.Label(FrameThing,text="\n").pack()
-ttk.Button(FrameThing, text="Send found Game-Stats",command=SendGameStats).pack()
+SendStats_Button=ttk.Button(FrameThing, text="Send found Game-Stats",command=SendGameStats)
+SendStats_Button.pack()
 SendStatus=ttk.Label(FrameThing,text="\n")
 SendStatus.pack()
 
-DiagnoseField=ttk.Frame(base,padding=30,relief="groove")
-DiagnoseField.pack(side="left")
+DiagnoseField=ttk.Frame(root,padding=30,relief="groove")
+DiagnoseField.grid(column=1,row=0)
 GameIcon=ttk.Label(DiagnoseField)
 GameIcon.pack()
 _=GameIcon.configure(image=steam_pic)
@@ -730,8 +796,17 @@ Achievement_Rate=ttk.Label(DiagnoseField,text="xxxxxx")
 Achievement_Rate.pack()
 Achievement_Rate_v:float=0
 
+ttk.Label(DiagnoseField,text="\nLast Played:").pack()
+Last_Played=ttk.Label(DiagnoseField,text="xxxxxx")
+Last_Played.pack()
+Last_Played_v:datetime=datetime.fromtimestamp(timestamp=0)
+
+
 ttk.Label(DiagnoseField,text="\n").pack()
-ttk.Button(DiagnoseField, text="Launch Game",command=Launch_Game).pack()
+Launch_Button=ttk.Button(DiagnoseField, text="Launch Game",command=Launch_Game)
+Launch_Button.pack()
+Game_Status=ttk.Label(DiagnoseField,text="\n")
+Game_Status.pack()
 
 root.mainloop()
 
