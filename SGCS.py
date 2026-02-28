@@ -1,7 +1,5 @@
 #SGCS Steam Game Cartridge System
 from PIL.Image import Image
-from requests.models import Response
-
 import requests
 import os
 import subprocess
@@ -11,7 +9,7 @@ import urllib
 import urllib.request
 from urllib.parse import urlparse
 from io import BytesIO
-
+import time
 
 from PIL import Image as PILImage
 from PIL import ImageTk
@@ -52,6 +50,7 @@ def Run_Game(GameID:int):
 def Launch_Game() -> None:
     global AppID_v
     GameID: int=int(AppID_v)
+    Register_Changes(appid=GameID)
     Run_Game(GameID)
 
 def List_Games() -> list[dict[str, int | str]]:
@@ -265,26 +264,26 @@ def Find_GameStats(AppID:int):
     #Game Stats and Achievements
 
 
-    url="https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
-    params = {
-        "key": API_KEY_Steam,
-        "steamid":USER_ID_Steam,
-        "appid":AppID
-    }
-    response: Response = requests.get(url, params=params)
-    try:
-        response.raise_for_status()
-        #print(response.text)
-        #print(response.headers)
-        #print(response.text)
-        if response.status_code==200:
-            GameAchievements=json.loads(response.text)  # pyright: ignore[reportAny, reportUnusedVariable]
-            #print(response.text)
-            with open('Achievements.txt', 'w') as filehandle:
-                json.dump(response.text, filehandle)   
-    except requests.exceptions.RequestException as e:
-        print(f"   ❌ Fehler: {e}")
-        print(response.text)
+    # url="https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/"
+    # params = {
+    #     "key": API_KEY_Steam,
+    #     "steamid":USER_ID_Steam,
+    #     "appid":AppID
+    # }
+    # response: Response = requests.get(url, params=params)
+    # try:
+    #     response.raise_for_status()
+    #     #print(response.text)
+    #     #print(response.headers)
+    #     #print(response.text)
+    #     if response.status_code==200:
+    #         GameAchievements=json.loads(response.text) 
+    #         #print(response.text)
+    #         with open('Achievements.txt', 'w') as filehandle:
+    #             json.dump(response.text, filehandle)   
+    # except requests.exceptions.RequestException as e:
+    #     print(f"   ❌ Fehler: {e}")
+    #     print(response.text)
     
 
 
@@ -298,8 +297,8 @@ def Find_GameStats(AppID:int):
         "steamid":USER_ID_Steam,
         "appid":AppID
     }
+    response = requests.get(url, params=params)
     try:
-        response = requests.get(url, params=params)
         response.raise_for_status()
         #print(response.text)
         #print(response.headers)
@@ -360,7 +359,7 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
         'dimensions':'256',
     }
     if use_SteamGrid==True:
-        aID=AppID["text"]
+        aID=AppID["text"]  # pyright: ignore[reportAny]
         if False:
             Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
             requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
@@ -370,8 +369,8 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
         print(Query.status_code)
         url:str =  requrl[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny, reportRedeclaration]
     else:
-        aID=Game["appid"]
-        iconURl=Game["img_icon_url"]
+        aID=Game["appid"]  # pyright: ignore[reportUnknownVariableType]
+        iconURl=Game["img_icon_url"]  # pyright: ignore[reportUnknownVariableType]
         url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{aID}/{iconURl}.jpg"
     response = requests.get(url)
     img = PILImage.open(BytesIO(response.content))#.convert('L')
@@ -520,8 +519,98 @@ def SendGameStats():
     except Exception as e: 
         SendStatus["text"]=f"Error! Encounterd {e}"
         return False   
+
+
+def Get_Libary_Locations() -> list[str]:
+    with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
+        library = f.read()
+    Regex=re.compile(r'(?<="\d"\s{2}{\s{3}"path"\s{2}")[^"]*')
+    Libary_Loactions=Regex.findall(library)
+    return Libary_Loactions
+    
+def Get_acf(appid:int) -> str:
+    Locations: list[str]=Get_Libary_Locations()
+    acf=""
+    for i in range(0,len(Locations)):
+        try:
+            with open(f"{Locations[i]}/steamapps/appmanifest_{appid}.acf") as f:
+                acf = f.read()
+                #print(f"Found under Location: {Locations[i]}/steamapps/appmanifest_{appid}.acf")
+                return acf
+        except FileNotFoundError:
+            #print(f"not Found under Location: {Locations[i]}/steamapps/")
+            #print("Searching Next Location")
+            continue
+        except Exception as e:
+            print(e)
+            break
+    return acf
+
+def Get_LastPlayed(appid:int) -> int: 
+    acf: str=Get_acf(appid)
+    Regex=re.compile(r'(?<="LastPlayed"\s{2}")[^"]*')
+    timestamp=int(Regex.findall(acf)[0])  # pyright: ignore[reportAny]
+    return timestamp  
+
+def Get_Name_from_Acf(appid:int):
+    acf: str=Get_acf(appid)
+    Regex=re.compile(r'(?<="name"\s{2}")[^"]*')
+    Name=str(Regex.findall(acf)[0])  # pyright: ignore[reportAny]
+    return Name  
+
+
+def Register_Changes(appid:int):
+    is_running=True
+    Old_time=Get_LastPlayed(appid=appid)  
+    New_time=Old_time 
+    Change:bool=False
+    has_launched=False
+    has_closed=False
+    Launch_Date=0
+    Close_Date=0
+    print("Starting Montoring")
+    print(f'Game:   "{Get_Name_from_Acf(appid=appid)}"')
+    print("----------------------------------------")
+    while is_running:
+        try:
+            New_time=Get_LastPlayed(appid=appid) 
+            timeUsed=int(round(time.time(),0))
+            if New_time!=Old_time:
+                Change=True
+                if has_launched ==False:
+                    has_launched =True
+                    Launch_Date=New_time
+                else:
+                    has_closed=True
+                    Close_Date=New_time
+                    print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
+                    print("Second Event Registered, Closing!")
+                    break
+            else:
+                Change=False
+            print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
+            Old_time=New_time 
+            time.sleep(1)
+        except KeyboardInterrupt:
+            is_running=False
+            print("Aborting")
+    if has_closed ==True:
+        Playtime_seconds: int=Close_Date-Launch_Date
+        Playtime_minutes: float=round(Playtime_seconds/60,1)
+        print(f'Summary: Game "{Get_Name_from_Acf(appid=appid)}" was played for {Playtime_minutes} Minutes')
+    else:
+        print("No Activity detected")
+
+
+
+
+
 #BitMap-Processing. maybe even for dithering and the likes
 #todo: Build small Interface. Build Way to save to External Flash Chip, then see how to get the Data Back again? Way to boot booth funcs?
+
+
+
+
 
 
 from tkinter import ttk
