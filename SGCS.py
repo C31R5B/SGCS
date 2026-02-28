@@ -546,8 +546,23 @@ def GUI_FindSteamUser():
 
 def RefreshPlaytime(Playtime_add:int):
     global Playtime_v
+    global AppID_v
     Playtime_v+=Playtime_add
     Playtime["text"]=round(Playtime_v/60,1)
+
+    #! Fix This Shit, The Local Chache needs to be updated too
+    with open("Games.txt") as f:
+        Resp = f.read()
+    Resp=json.loads(Resp)  # pyright: ignore[reportAny]
+    Games: list[dict[str, int | str]]=Resp["response"]["games"]
+    for i in range(0,len(Games)):
+        if Games[i]["appid"]==AppID_v:
+            Games[i]["playtime_forever"]=Playtime_v
+            Games[i]["rtime_last_played"]=Get_LastPlayed(AppID_v)
+            Resp["response"]["games"]=Games
+            break
+    with open('Games.txt', 'w') as filehandle:
+        json.dump(Resp, filehandle)        
 
 def PackageStats() -> dict[str, int | str | float]:
     global AppID_v
@@ -617,7 +632,9 @@ def Register_Changes(appid:int):
     Old_time=Get_LastPlayed(appid=appid)  
     New_time=Old_time 
     Change:bool=False
-    has_started=False
+    #!temporary
+    has_started=True
+
     has_launched=False
     has_closed=False
     Launch_Date=0
@@ -648,7 +665,7 @@ def Register_Changes(appid:int):
             #print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
             Console_Log(f"{New_time}  | Changed:  {Change}")
             Old_time=New_time 
-            time.sleep(1)
+            time.sleep(5)
         except KeyboardInterrupt:
             is_running=False
             print("Aborting")
