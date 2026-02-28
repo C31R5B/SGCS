@@ -79,6 +79,8 @@ def Refresh_GUI_OnSessionEnd(appid:int):
     Last_Played_v=datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid)))
     Last_Played["text"]=str(datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid))))
     Console_Log(str(SendGameStats()))
+    _ = root.attributes('-topmost', True)  # pyright: ignore[reportUnknownMemberType]
+    _ = root.attributes('-topmost', False)  # pyright: ignore[reportUnknownMemberType]
     FrameThing.grid()
     Quit_Button["state"]=NORMAL
     Quit_Button["text"]="Quit"
@@ -92,7 +94,7 @@ def Refresh_GUI_OnSessionEnd(appid:int):
     Launch_Button["text"]="Launch Game"
 
 def GUI_antifreeze(GameID:int):
-    Monitor=threading.Thread(target=Refresh_GUI_OnSessionEnd, args=(GameID,))
+    Monitor=threading.Thread(target=Refresh_GUI_OnSessionEnd, args=(GameID,),daemon=True)
     if Monitor.is_alive():
         Console_Log("Monitor already running!")
     else:

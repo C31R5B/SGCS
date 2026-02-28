@@ -7,13 +7,15 @@ import time
 #todo Implement Periodic Checking of the Actual Game-Time against the API
 #todo Implement Way of Checking who the last owner of the program was so nothing is pulled if its not needed - done
 #todo Keep User from Inputting or Launching Stuff when he isnt supposed to - done
-#todo Implement Listing for a Game Launch(API-Less) -done
+#todo Implement Listing for a Game Launch(API-Less) -WIP
 #todo Implement Library-location catching for ACF files -done
 #todo Start thinking about Connection Between Backend-PC-Raspberry-Cartridge
     #todo Start working with Flash Chip and E-Ink (Connection)
     #todo Start Working on interface between PC and Raspberry
     #todo Start Thinking about how the Backend should work
 
+#todo: Fix Error with Registering Launches Properly. maybe give an Arbitrary Time Delay before looking for changes
+#todo: Add Force-Refresh to Library
 
 def Get_Libary_Locations() -> list[str]:
     with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
