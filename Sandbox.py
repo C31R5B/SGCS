@@ -6,7 +6,7 @@ import time
 #todo Implement Periodic Checking of the Actual Game-Time against the API                                               - done
     #added Force-Refresh, now the txt needs a "lastFetched" and/or "fetch next"
 
-#todo List only Installed Games
+#todo List only Installed Games                                                                                         - done
 
 #todo Implement Way of Checking who the last owner of the program was so nothing is pulled if its not needed            - done
 #todo Keep User from Inputting or Launching Stuff when he isnt supposed to                                              - done

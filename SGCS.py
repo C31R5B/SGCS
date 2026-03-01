@@ -1,5 +1,6 @@
 #SGCS Steam Game Cartridge System
 import tkinter
+from typing import Any
 from PIL.Image import Image
 import requests
 import os
@@ -15,6 +16,8 @@ from datetime import datetime
 import threading
 from PIL import Image as PILImage
 from PIL import ImageTk
+import wmi  # pyright: ignore[reportMissingTypeStubs]
+
 try:
     with open("C:/Users/thecr/Nextcloud/AAA_SCGS/Key.txt") as f:
         key_data = f.readlines()
@@ -79,8 +82,8 @@ def Refresh_GUI_OnSessionEnd(appid:int):
     global Last_Played_v
     Playtime_Session=Register_Changes(appid=appid)
     RefreshPlaytime(Playtime_add=Playtime_Session)
-    Last_Played_v=datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid)))
-    Last_Played["text"]=str(datetime.fromtimestamp(timestamp=int(Get_LastPlayed(appid=appid))))
+    Last_Played_v=datetime.fromtimestamp(timestamp=int(Get_LastPlayed_from_Acf(appid=appid)))
+    Last_Played["text"]=str(datetime.fromtimestamp(timestamp=int(Get_LastPlayed_from_Acf(appid=appid))))
     Console_Log(str(SendGameStats()))
     root.deiconify()
     _ = root.attributes('-topmost', True)  # pyright: ignore[reportUnknownMemberType]
@@ -587,7 +590,7 @@ def RefreshPlaytime(Playtime_add:int):
     for i in range(0,len(Games)):
         if Games[i]["appid"]==AppID_v:
             Games[i]["playtime_forever"]=Playtime_v
-            Games[i]["rtime_last_played"]=Get_LastPlayed(AppID_v)
+            Games[i]["rtime_last_played"]=Get_LastPlayed_from_Acf(AppID_v)
             Resp["response"]["games"]=Games
             break
     with open('Games.txt', 'w') as filehandle:
@@ -622,15 +625,17 @@ def Get_Libary_Locations() -> list[str]:
     Libary_Loactions=Regex.findall(library)
     return Libary_Loactions
     
-def Get_acf(appid:int) -> str:
+def Get_acf(appid:int) -> dict[str, str]:
     Locations: list[str]=Get_Libary_Locations()
+    Location=""
     acf=""
     for i in range(0,len(Locations)):
         try:
             with open(f"{Locations[i]}/steamapps/appmanifest_{appid}.acf") as f:
                 acf = f.read()
+                Location=Locations[i]
                 #Console_Log(f"Found under Location: {Locations[i]}/steamapps/appmanifest_{appid}.acf")
-                return acf
+                return {"acf":acf, "Location":Location}
         except FileNotFoundError:
             #Console_Log(f"not Found under Location: {Locations[i]}/steamapps/")
             #Console_Log("Searching Next Location")
@@ -638,58 +643,107 @@ def Get_acf(appid:int) -> str:
         except Exception as e:
             Console_Log(f"{e}")
             break
-    return acf
+    return {"acf":acf, "Location":Location}
 
-def Get_LastPlayed(appid:int) -> int: 
-    acf: str=Get_acf(appid)
+def Get_LastPlayed_from_Acf(appid:int) -> int: 
+    acf: str=Get_acf(appid)["acf"]
     Regex=re.compile(r'(?<="LastPlayed"\s{2}")[^"]*')
     timestamp=int(Regex.findall(acf)[0])  # pyright: ignore[reportAny]
     return timestamp  
 
 def Get_Name_from_Acf(appid:int):
-    acf: str=Get_acf(appid)
+    acf: str=Get_acf(appid)["acf"]
     Regex=re.compile(r'(?<="name"\s{2}")[^"]*')
     Name=str(Regex.findall(acf)[0])  # pyright: ignore[reportAny]
     return Name  
 
+def Get_installdir_from_Acf(appid:int):
+    temp: dict[str, str]=Get_acf(appid)
+    acf: str=temp["acf"]
+    Location:str=temp["Location"]
+    Regex=re.compile(r'(?<="installdir"\s{2}")[^"]*')
+    InstallDir=f"{Location}/steamapps/common/{str(Regex.findall(acf)[0])}"  # pyright: ignore[reportAny]
+    Console_Log(string=f"found {InstallDir}")
+    return InstallDir  
+
+def Get_executable_from_Acf(appid:int):
+    Path: str=Get_installdir_from_Acf(appid)
+    Directory: list[str]=os.listdir(Path)
+    exeList: list[str]=[]
+    for i in range(0,len(Directory)):
+        if "exe" in Directory[i]:
+            exeList.append(Directory[i])
+    for i in range (0,len(exeList)):
+        if "Unity" in exeList[i] or "unity" in exeList[i]:
+            exeList.remove(exeList[i])
+    if exeList==[]:
+        return {"Path":"","exe":""}
+    else:
+        return {"Path":f"{Path}/{exeList[0]}","exe":f"{exeList[0]}"}
+
+def Listen_for_GameStart(appid:int):
+    Game=Get_executable_from_Acf(appid)
+    is_Running=True
+    c = wmi.WMI()  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+    process_watcher = c.Win32_Process.watch_for("creation")  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+    while is_Running:
+        time.sleep(1)
+        new_process = process_watcher()  # pyright: ignore[reportUnknownVariableType]
+        if new_process.Caption == f'{Game["exe"]}':  # pyright: ignore[reportUnknownMemberType]
+            Console_Log(f"Found Start of Game {Game["exe"]} with appid {appid}")
+            is_Running=False
+    Time=int(round(time.time(),0))
+    return True, Time
+
+def Listen_for_GameClose(appid:int):
+    #! As of Now Unused
+    Game=Get_executable_from_Acf(appid)
+    is_Running=True
+    c = wmi.WMI()  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+    process_watcher = c.Win32_Process.watch_for("deletion")  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+    while is_Running:
+        time.sleep(1)
+        new_process = process_watcher()  # pyright: ignore[reportUnknownVariableType]
+        if new_process.Caption == f'{Game["exe"]}':  # pyright: ignore[reportUnknownMemberType]
+            Console_Log(f"Found Closing of Game {Game["exe"]} with appid {appid}")
+            is_Running=False
+    Time=int(round(time.time(),0))
+    return True, Time
 
 def Register_Changes(appid:int):
     """ Listens to the appmanifest_{appid}.acf file and Checks the LastPlayed Property. \n 
     With Starting, Launching and Closing the Game 3 Changes are registered, after the last one. a Sesstion Playtime in Full Minutes is returned."""
-
+    print(Get_executable_from_Acf(appid))
     is_running=True
-    Old_time=Get_LastPlayed(appid=appid)  
-    New_time=Old_time 
     Change:bool=False
-    #!temporary
-    has_started=True
-
-    has_launched=False
-    has_closed=False
     Launch_Date=0
     Close_Date=0
     print("Starting Montoring")
     print(f'Game:   "{Get_Name_from_Acf(appid=appid)}"')
     print("----------------------------------------")
     print("Waiting for Launch")
+    GameStart=Listen_for_GameStart(appid)
+    has_launched=GameStart[0]
+    Launch_Date=GameStart[1]
+    print("----------------------------------------")
+    print("Sleeping before Starting Monitoring")
+    print("----------------------------------------")
+    time.sleep(10)
+    has_closed=False
+    Old_time=Get_LastPlayed_from_Acf(appid=appid)  
+    New_time=Old_time 
     while is_running:
         try:
-            New_time=Get_LastPlayed(appid=appid) 
+            New_time=Get_LastPlayed_from_Acf(appid=appid) 
             if New_time!=Old_time:
                 Change=True
-                if has_started==False:  # pyright: ignore[reportUnnecessaryComparison]
-                    has_started=True
-                else:
-                    if has_launched ==False:
-                        has_launched =True
-                        Launch_Date=New_time
-                    else:
-                        has_closed=True
-                        Close_Date=New_time
-                        #print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
-                        Console_Log(f"{New_time}  | Changed:  {Change}")
-                        print("Third Event Registered, Closing!")
-                        break
+                has_closed=True
+                Close_Date=New_time
+                #print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
+                Console_Log(f"{New_time}  | Changed:  {Change}")
+                print("Closing Event Registered, Closing!")
+                is_running=False
+                break
             else:
                 Change=False
             #print(f"{timeUsed}:    {New_time}  | Changed:  {Change}")
