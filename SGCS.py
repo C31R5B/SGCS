@@ -481,7 +481,7 @@ def GUI_FindSteamUser():
             Steam_URL=str(Resp["LibraryOwner"])  # pyright: ignore[reportAny]
         except Exception:
             Steam_URL=UserNameField.get()
-        LogOnLastUser=False
+        LogOnLastUser=False    
     else:
         Steam_URL=UserNameField.get()
     path = urlparse(Steam_URL).path.rstrip('/')  # Remove trailing slash if any
@@ -567,9 +567,11 @@ def GUI_FindSteamUser():
         photo = ImageTk.PhotoImage(image)
         _=Picture.configure(image=photo)
         Picture.image = photo   # pyright: ignore[reportAttributeAccessIssue]
+        LastUser={"steamID": USER_ID_Steam,"ProfileURL":ProfileURL,"ProfileAvatarURL":ProfileAvatarURL,"Nickname":Nickname}
     except requests.exceptions.RequestException as e:
         Console_Log(f"   ❌ Fehler: {e}")
         Console_Log(response.text)
+        LastUser={"steamID": "","ProfileURL":"","ProfileAvatarURL":"","Nickname":""}
     tempList=List_Owned_Client_Games(force_refresh=False)
     temp: list[str]=[]
     for i in range (0,len(tempList)):  
@@ -577,6 +579,11 @@ def GUI_FindSteamUser():
         temp.append(str(name))
     ComboValues=sorted(temp)
     NameField['values']=ComboValues 
+    LogLastUser(LastUser=LastUser)
+
+def LogLastUser(LastUser:dict[str , str]):
+    with open("LastUser.txt", "w") as filehandle:
+        json.dump(LastUser, filehandle)   
 
 def RefreshPlaytime(Playtime_add:int):
     global Playtime_v
