@@ -105,6 +105,19 @@ def Register_Changes(appid:int):
     else:
         print("No Activity detected")
 
+def SendDataAway(Operation, Location, DataToSend):
+    return
+    #Operation: what should be done with the Data? 
+        #Display: Put the Stuff on the E-Ink if Available
+        #Read: Read the Whole of a Chip
+        #Write: Write the Whole of a Chip
+    #Location: 
+        # Display/Read: Specify which Decvice is to be used (EInk 1/2, CHiP 1/2....)
+        # Write: where to store the data
+    #DataToSend/Receive
+        #Explanatory
+
+    # Probably gonna use a STM32 still, apparently the RPI isnt suited well for this type of Work
 
 
 #Register_Changes(appid=int(input("please input appid to Listen for Changes:")))
