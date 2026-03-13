@@ -2,6 +2,7 @@
 import tkinter
 from typing import Any
 from PIL.Image import Image
+from pythoncom import Connect
 import requests
 import os
 import subprocess
@@ -39,15 +40,32 @@ def Console_Log(string:str):
     timeUsed=int(round(time.time(),0))
     print(f'{timeUsed}: {string}')
 
-def Connect_Check() -> bool:
+IsConnected=False
+
+def Connect_Check() -> None:
+    global IsConnected
     try:
         _=requests.get(url="https://store.steampowered.com/",timeout=1)
         Console_Log("Internetverbindung erfolgreich!")
-        return True         
+        IsConnected=True
     except requests.ConnectionError as e:
         Console_Log(f"Internetverbindung fehlgeschlagen: {e}")
-        return False
+        IsConnected=False
 
+
+def Connect_Check_Reaccuring() -> None:
+    while True:
+        Connect_Check()
+        time.sleep(30)
+
+def Connect_Check_Thread():
+    """Refreshes the Connection Status every 30 seconds"""
+    ConnectionMonitor=threading.Thread(target=Connect_Check_Reaccuring,daemon=True)
+    if ConnectionMonitor.is_alive():
+        Console_Log("ConnectionMonitor already running!")
+    else:
+        Console_Log("Starting Connection Monitor")
+        ConnectionMonitor.start()
 
 def Steam_running():
     tasks = subprocess.check_output("tasklist").decode(encoding="utf-8").lower()
@@ -153,9 +171,17 @@ def List_Games() -> list[dict[str, int | str]]:
         return [{"appid":int(),"name":"","playtime_forever":int()}]
 
 def List_Owned_Client_Games(force_refresh:bool)  -> list[dict[str, int | str]]:
+    """Lists Owned Games from an API Call or, if applicable, from a Local Cache"""
+    
+    #local Cache, if no Connection or 
+    # Owner Matches Library AND Library isnt Older than set Date Determined by Variable FetchIntervall AND no Forced_Refresh has been set
+    
+    global IsConnected
+    if IsConnected!= True:
+        Console_Log("No Internet Connection, Falling back to Local Cache")
     Games: list[dict[str, int | str]]
     try:
-        if force_refresh:
+        if force_refresh and IsConnected:
             Console_Log("Forcing Refresh of Library!")
             raise Exception
         with open("Games.txt") as f:
@@ -163,20 +189,26 @@ def List_Owned_Client_Games(force_refresh:bool)  -> list[dict[str, int | str]]:
         Console_Log("Read Local Cache!")
         Resp=json.loads(Resp)  # pyright: ignore[reportAny]
         Owner=Resp["LibraryOwner"]  # pyright: ignore[reportAny]
-        if str(Owner)!=str(USER_ID_Steam):  # pyright: ignore[reportAny]
+        if str(Owner)!=str(USER_ID_Steam) and IsConnected:  # pyright: ignore[reportAny]
             Console_Log("Owner dosent Match Library, refetching!")
             raise Exception
         else:
-            Console_Log("Owner is a Match to Library!")
+            if str(Owner)==str(USER_ID_Steam):# pyright: ignore[reportAny]
+                Console_Log("Owner is a Match to Library!")
+            else:
+                Console_Log("Owner does NOT Match, using due to no Internet connection")
             Games=Resp["response"]["games"]   # pyright: ignore[reportAny]
         LastUpdate=Resp["LastFetched"]  # pyright: ignore[reportAny]
         FetchIntervall=259200 #3-Days
         Console_Log(f"Last Check-In with Steam has been {round((int(round(time.time(),0))-LastUpdate)/(3600*24),2)} Days ago.")  # pyright: ignore[reportAny]
-        if int(round(time.time(),0))-LastUpdate>=FetchIntervall:
+        if int(round(time.time(),0))-LastUpdate>=FetchIntervall and IsConnected:
             Console_Log(f"Libary hasn't been checked in more than {round(FetchIntervall/(3600*24),2)} Days, refetching!")
             raise Exception
         else:
-            Console_Log("Library is up to Date!")
+            if int(round(time.time(),0))-LastUpdate<FetchIntervall:
+                Console_Log("Library is up to Date!")
+            else:
+                Console_Log("Library outdated, no way of Fetching due to no Internet Connection")
 
         return Games
     except Exception as e:
@@ -294,7 +326,7 @@ def GUI_FindGameID() -> None:
             _=GameIcon.configure(image=photo)
             GameIcon.image = photo   # pyright: ignore[reportAttributeAccessIssue]
             url=Data["img_icon_url"]
-            Logo_Icon_URL=f"http://media.steampowered.com/steamcommunity/public/images/apps/{AppID_v}/{url}.jpg"
+            Logo_Icon_URL=f"http://media.steampowered.com/steamcommunity/public/images/apps/{AppID_v}/{url}.jpg" #! Find a way to make that Usable InternetLess (Appcache Folder!)
             # Logo_Icon_URL=""
             Last_Played_v=datetime.fromtimestamp(timestamp=int(Data["rtime_last_played"]))
             Last_Played["text"]=str(datetime.fromtimestamp(timestamp=int(Data["rtime_last_played"])))
@@ -379,8 +411,9 @@ def Find_GameStats(AppID:int):
         "steamid":USER_ID_Steam,
         "appid":AppID
     }
-    response = requests.get(url, params=params)
+    
     try:
+        response = requests.get(url, params=params)
         response.raise_for_status()
         if response.status_code==200:
             UserAchievements=json.loads(response.text)# pyright: ignore[reportAny]
@@ -396,7 +429,7 @@ def Find_GameStats(AppID:int):
             _=Achievement_Rate.configure(text=str(Achievement_Rate_v)+"%")
     except requests.exceptions.RequestException as e:
         Console_Log(f"   ❌ Fehler: {e}")
-        Console_Log(response.text)
+        # Console_Log(response.text)
         _=Achievement_Rate.configure(text="Not Public!")
     
 
@@ -450,8 +483,12 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
         aID=Game["appid"]  # pyright: ignore[reportUnknownVariableType]
         iconURl=Game["img_icon_url"]  # pyright: ignore[reportUnknownVariableType]
         url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{aID}/{iconURl}.jpg"
-    response = requests.get(url)
-    img = PILImage.open(BytesIO(response.content))#.convert('L')
+    try:
+        response = requests.get(url)
+        img = PILImage.open(BytesIO(response.content))#.convert('L')
+    except Exception as e:
+        Console_Log(str(e))
+        img = PILImage.open("Steam.png")
     if use_BlackWhite ==True:
         img=img.convert(mode='L')
     return img 
@@ -472,6 +509,7 @@ def GUI_FindSteamUser():
     global USER_ID_Steam_Standard
     global LogOnLastUser
     global ComboValues
+    global IsConnected
     if LogOnLastUser:
         try:
             with open("Games.txt") as f:
@@ -844,8 +882,7 @@ def Refresh_Listed_Games():
     NameField['values']=ComboValues 
     Console_Log("Refreshed Selection List")
 
-    
-IsConnected=Connect_Check()
+Connect_Check_Thread()
 #GamesList=List_Owned_Client_Games(force_refresh=False)
 
 
