@@ -12,6 +12,9 @@ import time
 #todo Keep User from Inputting or Launching Stuff when he isnt supposed to                                              - done
 #todo Implement Listing for a Game Launch(API-Less)                                                                     - WIP
     #Recherche to see how steam Figures out what to launch and what to listen for but the System now Works fine enough
+#todo Implement Caching for Pictures and Users
+#todo Implement Internet-Less Use
+#todo Lower API_Calls Per User per Session
 
 #todo Implement Library-location catching for ACF files                                                                 - done
 
