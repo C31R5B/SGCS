@@ -1,8 +1,6 @@
 #SGCS Steam Game Cartridge System
 import tkinter
-from typing import Any
 from PIL.Image import Image
-from pythoncom import Connect
 import requests
 import os
 import subprocess
@@ -47,20 +45,39 @@ Internet_Calls=0
 #! Find a way to implement that into Access_Tracker
 #! Find a way to Make the Fetching of Infos API_less for Installed Games
 
-def Access_Tracker(url:str, params):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+def Access_Tracker(url:str,**kwargs):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
     """Calls the API via requests.get and Increases the Variable API_Calls by 1 for each Call. 
     Only to be Implemented in the Event of Calls to the Steam API as it Limits accesses"""
     global API_Calls
-    response=requests.get(url, params=params)  # pyright: ignore[reportUnknownArgumentType]
-    API_Calls+=1
+    global Internet_Calls
+    Regex=re.compile(r'api.steampowered.com')
+    API_Call: list[tuple[str]]=Regex.findall(url)
+    params = kwargs.get('params', None)  # pyright: ignore[reportUnknownMemberType]
+    headers = kwargs.get('header', None)  # pyright: ignore[reportUnknownMemberType]
+    #etc
+    if params!=None:
+        if headers!=None:
+            response=requests.get(url, params=params,headers=headers)  # pyright: ignore[reportUnknownArgumentType]
+        else:
+            response=requests.get(url, params=params)  # pyright: ignore[reportUnknownArgumentType]
+    else:
+        if headers!=None:
+            response=requests.get(url,headers=headers)  # pyright: ignore[reportUnknownArgumentType]
+        else:
+            response=requests.get(url)    # pyright: ignore[reportUnknownArgumentType]
+    
+    if API_Call!=[]:
+        API_Calls+=1
+    Internet_Calls+=1
     Console_Log(f"Calling URL: {url}")
     Console_Log(string=f"Number of API Calls is {API_Calls}")
+    Console_Log(string=f"Number of Internet Calls is {Internet_Calls}")
     return response
 
 def Connect_Check() -> None:
     global IsConnected
     try:
-        _=requests.get(url="https://store.steampowered.com/",timeout=1)
+        _=Access_Tracker(url="https://store.steampowered.com/")
         Console_Log("Internetverbindung erfolgreich!")
         IsConnected=True
     except requests.ConnectionError as e:
@@ -487,9 +504,9 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
     if use_SteamGrid==True:
         aID=AppID["text"]  # pyright: ignore[reportAny]
         if False:
-            Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
+            Query=Access_Tracker(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
             requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
-        Query=requests.get(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)
+        Query=Access_Tracker(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)
         requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
 
         print(Query.status_code)
@@ -499,7 +516,7 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
         iconURl=Game["img_icon_url"]  # pyright: ignore[reportUnknownVariableType]
         url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{aID}/{iconURl}.jpg"
     try:
-        response = requests.get(url)
+        response = Access_Tracker(url)
         img = PILImage.open(BytesIO(response.content))#.convert('L')
     except Exception as e:
         Console_Log(str(e))
