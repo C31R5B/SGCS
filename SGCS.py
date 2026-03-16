@@ -42,6 +42,21 @@ def Console_Log(string:str):
 
 IsConnected=False
 
+API_Calls=0
+Internet_Calls=0
+#! Find a way to implement that into Access_Tracker
+#! Find a way to Make the Fetching of Infos API_less for Installed Games
+
+def Access_Tracker(url:str, params):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+    """Calls the API via requests.get and Increases the Variable API_Calls by 1 for each Call. 
+    Only to be Implemented in the Event of Calls to the Steam API as it Limits accesses"""
+    global API_Calls
+    response=requests.get(url, params=params)  # pyright: ignore[reportUnknownArgumentType]
+    API_Calls+=1
+    Console_Log(f"Calling URL: {url}")
+    Console_Log(string=f"Number of API Calls is {API_Calls}")
+    return response
+
 def Connect_Check() -> None:
     global IsConnected
     try:
@@ -143,7 +158,7 @@ def List_Games() -> list[dict[str, int | str]]:
         # "last_appid": last_appid       # Startpunkt für die nächste Seite
     }
     Console_Log(f"🔄 Rufe Seite ab mit last_appid = {last_appid}...")
-    response = requests.get(url, params=params)
+    response = Access_Tracker(url, params=params)
     try:
         response.raise_for_status()
         data = response.json()  # pyright: ignore[reportAny]
@@ -235,7 +250,7 @@ def List_Owned_Client_Games(force_refresh:bool)  -> list[dict[str, int | str]]:
         
         #Source: https://wiki.teamfortress.com/wiki/WebAPI/GetOwnedGames
 
-        response = requests.get(url, params=params)
+        response = Access_Tracker(url, params=params)
         try:
             response.raise_for_status()
             #print(response.text)
@@ -355,7 +370,7 @@ def Find_GameStats(AppID:int):
     #     "gameid":AppID
     # }
     # try:
-    #     response = requests.get(url, params=params)
+    #     response = Acess_Tracker(url, params=params)
     #     response.raise_for_status()
     #     #print(response.text)
         
@@ -384,7 +399,7 @@ def Find_GameStats(AppID:int):
     #     "steamid":USER_ID_Steam,
     #     "appid":AppID
     # }
-    # response: Response = requests.get(url, params=params)
+    # response: Response = Acess_Tracker(url, params=params)
     # try:
     #     response.raise_for_status()
     #     #print(response.text)
@@ -413,7 +428,7 @@ def Find_GameStats(AppID:int):
     }
     
     try:
-        response = requests.get(url, params=params)
+        response = Access_Tracker(url, params=params)
         response.raise_for_status()
         if response.status_code==200:
             UserAchievements=json.loads(response.text)# pyright: ignore[reportAny]
@@ -445,7 +460,7 @@ def Find_GameStats(AppID:int):
     #     "appid":AppID
     # }
     # try:
-    #     response = requests.get(url, params=params)
+    #     response = Acess_Tracker(url, params=params)
     #     response.raise_for_status()
     #     #print(response.text)
         # #print(response.headers)
@@ -539,7 +554,7 @@ def GUI_FindSteamUser():
                 "vanityurl":id,
                 "url_type":1
             }
-            response = requests.get(url, params=params)
+            response = Access_Tracker(url, params=params)
             try:
                 response.raise_for_status()
 
@@ -568,7 +583,7 @@ def GUI_FindSteamUser():
                 "vanityurl":id,
                 "url_type":1
             }
-            response = requests.get(url, params=params)
+            response = Access_Tracker(url, params=params)
             try:
                 response.raise_for_status()
                 if response.status_code==200:
@@ -583,7 +598,7 @@ def GUI_FindSteamUser():
         "key": API_KEY_Steam,
         "steamids":USER_ID_Steam
     }
-    response = requests.get(url, params=params)
+    response = Access_Tracker(url, params=params)
     try:
         response.raise_for_status()
         if response.status_code==200:
