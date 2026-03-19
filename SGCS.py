@@ -1,4 +1,5 @@
 #SGCS Steam Game Cartridge System
+from sys import exception
 import tkinter
 from PIL.Image import Image
 import requests
@@ -501,29 +502,41 @@ def FetchImage(Game,use_SteamGrid:bool,use_BlackWhite:bool) -> Image:  # pyright
         'styles':'official',
         'dimensions':'256',
     }
-    if use_SteamGrid==True:
-        aID=AppID["text"]  # pyright: ignore[reportAny]
-        if False:
-            Query=Access_Tracker(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
-            requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
-        Query=Access_Tracker(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)
-        requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
-
-        print(Query.status_code)
-        url:str =  requrl[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny, reportRedeclaration]
-    else:
-        aID=Game["appid"]  # pyright: ignore[reportUnknownVariableType]
-        iconURl=Game["img_icon_url"]  # pyright: ignore[reportUnknownVariableType]
-        url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{aID}/{iconURl}.jpg"
     try:
-        response = Access_Tracker(url)
-        img = PILImage.open(BytesIO(response.content))#.convert('L')
+        Console_Log("Trying to Fetch from Local Cache")
+        Path="C:/Program Files (x86)/Steam/appcache/librarycache"
+        iconURl=Game["img_icon_url"]  # pyright: ignore[reportUnknownVariableType]
+        aID=Game["appid"]  # pyright: ignore[reportUnknownVariableType]
+        img = PILImage.open(f"{Path}/{aID}/{iconURl}.jpg")
+        Console_Log(f"Found under {Path}/{aID}/{iconURl}.jpg")
+        if use_BlackWhite ==True:
+            img=img.convert(mode='L')
+        return img 
     except Exception as e:
-        Console_Log(str(e))
-        img = PILImage.open("Steam.png")
-    if use_BlackWhite ==True:
-        img=img.convert(mode='L')
-    return img 
+        Console_Log(f"Encountered Error {e}, \nfetching from Online Source!")
+        if use_SteamGrid==True:
+            aID=AppID["text"]  # pyright: ignore[reportAny]
+            if False:
+                Query=Access_Tracker(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)  # pyright: ignore[reportUnreachable]
+                requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
+            Query=Access_Tracker(f"https://www.steamgriddb.com/api/v2/icons/steam/{aID}",headers=headers,params=params)
+            requrl=re.findall((r'(?<="url":")[^"]*'),Query.text)
+
+            print(Query.status_code)
+            url:str =  requrl[0].encode("utf-8").decode("unicode_escape").replace("\\/", "/")  # pyright: ignore[reportAny, reportRedeclaration]
+        else:
+            aID=Game["appid"]  # pyright: ignore[reportUnknownVariableType]
+            iconURl=Game["img_icon_url"]  # pyright: ignore[reportUnknownVariableType]
+            url:str =f"http://media.steampowered.com/steamcommunity/public/images/apps/{aID}/{iconURl}.jpg"
+        try:
+            response = Access_Tracker(url)
+            img = PILImage.open(BytesIO(response.content))#.convert('L')
+        except Exception as e:
+            Console_Log(str(e))
+            img = PILImage.open("Steam.png")
+        if use_BlackWhite ==True:
+            img=img.convert(mode='L')
+        return img 
 
 
 #https://store.steampowered.com/app/1210320/Potion_Craft_Alchemist_Simulator/
