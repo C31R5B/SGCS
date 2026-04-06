@@ -17,6 +17,8 @@ import threading
 from PIL import Image as PILImage
 from PIL import ImageTk
 import wmi  # pyright: ignore[reportMissingTypeStubs]
+import serial
+
 
 try:
     with open("C:/Users/thecr/Nextcloud/AAA_SCGS/Key.txt") as f:
@@ -707,6 +709,32 @@ def SendGameStats():
         SendStatus["text"]=f"Error! Encounterd {e}"
         return False   
 
+def UART_SendGameStats():
+    GameStats=PackageStats()
+    # Define the serial port and baud rate (adjust as needed)
+    serial_port = 'COM12'  # Replace 'X' with the actual COM port number
+    baud_rate = 12800
+    try:
+        # Open the serial port
+        ser = serial.Serial(serial_port, baud_rate, timeout=1)
+        Console_Log(f"Connected to {serial_port} at {baud_rate} baud")
+        
+        # Data to send to the Raspberry Pi Pico
+        data_to_send = "Hello, STM32\n"
+
+        # Send the data
+        _=ser.write(data_to_send.encode())
+
+        # Wait for a while before sending again (adjust as needed)
+        time.sleep(2)
+        aID=GameStats["appid"]
+        SendStatus["text"]=f"Success! Sent FileID {aID}"
+        return True
+    except Exception as e: 
+        SendStatus["text"]=f"Error! Encounterd {e}"
+        return False
+    finally:
+        ser.close()     # pyright: ignore[reportPossiblyUnboundVariable]
 
 def Get_Libary_Locations() -> list[str]:
     with open(f"C:/Program Files (x86)/Steam/steamapps/libraryfolders.vdf") as f:
@@ -860,7 +888,6 @@ def GUI_RefreshLibrary():
     GamesList=List_Owned_Client_Games(force_refresh=True)
     Console_Log("Sucess! Refreshed your Library!")
     Status_Library["text"]="Sucess! Refreshed your Library!"
-
 
 
 #BitMap-Processing. maybe even for dithering and the likes
